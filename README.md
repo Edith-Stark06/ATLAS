@@ -69,6 +69,16 @@ cd apps/api && .venv/Scripts/python.exe -m app
 
 Use `python -m app` rather than invoking `uvicorn` directly — the entrypoint installs a Windows event-loop shim that psycopg3 requires (see `app/core/compat.py`).
 
+Apply migrations and load the reference dataset:
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m alembic upgrade head
+```
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m app.seed --reset
+```
+
 API on <http://localhost:8000>, interactive docs at `/docs`.
 
 ### 3. Web
@@ -112,9 +122,37 @@ marked "soon" in the sidebar.
 The `executive-overview` export is ~90% identical to `atlas-control-center`
 (which supersedes it as "Refined"), so it is not built as a separate route.
 
-Phase 1 renders everything from typed fixtures in `apps/web/src/lib/mock-data.ts`.
-Those shapes (`apps/web/src/lib/types.ts`) are the contract the API will satisfy
-in Phase 2.
+Every data-backed screen reads live from the API. If the backend is down the
+route renders an explicit "Backend unavailable" panel rather than crashing.
+
+## API
+
+All responses are camelCase, so `apps/web/src/lib/types.ts` consumes them with
+no mapping layer.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /api/v1/health` | Service + dependency health |
+| `GET /api/v1/dashboard` | Aggregated metrics, composite trust, pipeline, activity |
+| `GET /api/v1/agents` · `/{id}` | Agent registry with trust factors |
+| `GET /api/v1/decisions` · `/{id}` | Decisions with policy evidence and investigation |
+| `GET /api/v1/policies` | Policy ledger |
+| `GET /api/v1/simulations` · `/{id}` | Simulation runs with predicted outcomes |
+| `GET /api/v1/activity` | Governance activity feed |
+
+### Data model notes
+
+- **Money is `Numeric(16,2)`**, never float, so amounts round-trip exactly. It is
+  serialised as a JSON number for the client.
+- **`decisions.investigation` and `simulation_runs.request` are `JSONB`** — their
+  shape varies per action type and they are always read alongside their parent
+  row, so sparse relational tables would buy nothing.
+- **`policy_checks.policy_name` is denormalised on purpose.** Policies are
+  versioned and renamed; an audit record must show the name as it was at the
+  time of the decision.
+- **`compositeTrust.predicted` is `null`.** The trend samples trust across
+  different agents, so extrapolating it would be misleading. Real forecasting
+  arrives with the Trust Engine in Phase 3.
 
 ---
 
@@ -124,7 +162,7 @@ in Phase 2.
 | --- | --- | --- |
 | 0 | Foundation — monorepo, design tokens, health check wired end to end | ✅ |
 | 1 | Frontend shell — Stitch screens as real React routes on typed mock data | ✅ |
-| 2 | Data model & API — core entities, migrations, CRUD | |
+| 2 | Data model & API — core entities, migrations, live console | ✅ |
 | 3 | Trust Engine — dynamic trust scoring | |
 | 4 | Policy Brain — policy authoring + evaluation | |
 | 5 | Simulation Engine — pre-execution outcome prediction | |

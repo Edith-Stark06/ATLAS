@@ -35,6 +35,15 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# `Depends`/`Query` in argument defaults is the FastAPI idiom, not the B008 bug.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+
+[tool.ruff.lint.per-file-ignores]
+# Import order is load-bearing: the event-loop shim must run before SQLAlchemy
+# or Alembic import anything that touches a driver.
+"alembic/env.py" = ["I001", "E402", "F403"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

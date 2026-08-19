@@ -187,6 +187,27 @@ export interface DashboardMetric {
   icon: string;
 }
 
+export interface CompositeTrust {
+  score: number;
+  /** Null until the Trust Engine produces real forecasts (Phase 3). */
+  predicted: number | null;
+  factors: TrustFactor[];
+  /** Trust recorded against recent decisions, oldest → newest. */
+  trend: number[];
+}
+
+export interface LivePipeline {
+  transactionId: string;
+  stages: PipelineStage[];
+}
+
+export interface DashboardData {
+  metrics: DashboardMetric[];
+  compositeTrust: CompositeTrust;
+  livePipeline: LivePipeline;
+  activity: ActivityItem[];
+}
+
 /** Maps a 0–100 score onto its trust band. */
 export function trustBand(score: number): TrustBand {
   if (score >= 90) return "trusted";
