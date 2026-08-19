@@ -1,0 +1,24 @@
+{
+  "name": "atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ATLAS - Adaptive Trust & Lifecycle Assurance System",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@atlas/web",
+    "build": "npm run build --workspace=@atlas/web",
+    "start": "npm run start --workspace=@atlas/web",
+    "lint": "npm run lint --workspace=@atlas/web",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d",
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "db:logs": "docker compose -f infra/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "next": "16.3.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

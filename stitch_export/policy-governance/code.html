@@ -1,0 +1,364 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Policy Governance | ATLAS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline": "#8c909f",
+                      "on-primary": "#002e6a",
+                      "inverse-primary": "#005ac2",
+                      "on-tertiary-container": "#00311f",
+                      "on-error": "#690005",
+                      "surface-container": "#1d1f27",
+                      "background": "#11131b",
+                      "on-secondary-container": "#00424e",
+                      "secondary-fixed": "#acedff",
+                      "on-error-container": "#ffdad6",
+                      "on-primary-container": "#00285d",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "tertiary-container": "#00a572",
+                      "on-primary-fixed-variant": "#004395",
+                      "surface-container-high": "#282a32",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "on-surface-variant": "#c2c6d6",
+                      "surface-bright": "#373942",
+                      "tertiary": "#4edea3",
+                      "surface-variant": "#33343d",
+                      "primary-fixed": "#d8e2ff",
+                      "error": "#ffb4ab",
+                      "outline-variant": "#424754",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "on-tertiary-fixed": "#002113",
+                      "on-surface": "#e1e1ed",
+                      "on-tertiary": "#003824",
+                      "on-background": "#e1e1ed",
+                      "surface-tint": "#adc6ff",
+                      "tertiary-fixed": "#6ffbbe",
+                      "error-container": "#93000a",
+                      "primary": "#adc6ff",
+                      "surface-container-low": "#191b23",
+                      "on-secondary": "#003640",
+                      "surface-container-lowest": "#0c0e15",
+                      "surface-dim": "#11131b",
+                      "surface-container-highest": "#33343d",
+                      "on-secondary-fixed": "#001f26",
+                      "primary-fixed-dim": "#adc6ff",
+                      "secondary-container": "#03b5d3",
+                      "secondary": "#4cd7f6",
+                      "primary-container": "#4d8eff",
+                      "surface": "#11131b",
+                      "inverse-surface": "#e1e1ed",
+                      "on-primary-fixed": "#001a42",
+                      "inverse-on-surface": "#2e3039"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "gutter": "16px",
+                      "container-padding": "24px",
+                      "stack-lg": "32px",
+                      "unit": "4px",
+                      "stack-md": "16px",
+                      "stack-sm": "8px"
+              },
+              "fontFamily": {
+                      "headline-md": ["Inter"],
+                      "label-mono": ["Geist"],
+                      "headline-lg": ["Inter"],
+                      "status-label": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "headline-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "label-mono": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "status-label": ["11px", {"lineHeight": "1", "fontWeight": "700"}],
+                      "body-sm": ["13px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                      "body-lg": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "headline-sm": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Geist:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background-color: rgba(25, 27, 35, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-critical {
+            box-shadow: 0 0 8px rgba(255, 180, 171, 0.5);
+        }
+        .glow-success {
+            box-shadow: 0 0 8px rgba(78, 222, 163, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex overflow-hidden">
+<aside class="fixed docked left-0 h-screen w-64 bg-surface-container/80 backdrop-blur-xl flex flex-col h-full border-r border-outline-variant/20 shadow-2xl z-50">
+<div class="p-6 border-b border-white/10 flex items-center justify-between"><div><h1 class="font-headline-lg text-headline-lg font-bold tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(173,198,255,0.3)]">Policy Brain</h1><p class="font-label-mono text-label-mono text-on-surface-variant mt-1 uppercase">Context-aware governance</p></div><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-tertiary glow-success"></span><span class="font-status-label text-status-label text-tertiary">Online</span></div></div>
+<nav class="flex-1 overflow-y-auto py-4">
+<ul class="space-y-1 px-3">
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">dashboard</span><span class="font-body-sm text-body-sm">Control Center</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">security</span><span class="font-body-sm text-body-sm">Trust Engine</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">robot_2</span><span class="font-body-sm text-body-sm">AI Agents</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary-container/20 border-r-2 border-primary shadow-[0_0_12px_-2px_rgba(173,198,255,0.4)] scale-[0.99] transition-transform" href="#"><span class="material-symbols-outlined text-lg">gavel</span><span class="font-body-sm text-body-sm font-semibold">Policy Governance</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">troubleshoot</span><span class="font-body-sm text-body-sm">Decision Investigation</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">analytics</span><span class="font-body-sm text-body-sm">Risk Simulation</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">visibility</span><span class="font-body-sm text-body-sm">Explainability</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">history_edu</span><span class="font-body-sm text-body-sm">Governance Ledger</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">query_stats</span><span class="font-body-sm text-body-sm">Analytics</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">notifications</span><span class="font-body-sm text-body-sm">Alerts</span></a></li>
+<li class=""><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#"><span class="material-symbols-outlined text-lg">settings</span><span class="font-body-sm text-body-sm">Settings</span></a></li>
+</ul>
+</nav>
+<div class="p-4 border-t border-white/10 font-label-mono text-label-mono text-on-surface-variant text-center opacity-60">
+<div class="">AI Trust OS v1.0</div>
+<div class="mt-1">Enterprise Edition</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col ml-64 min-h-screen">
+<header class="fixed docked top-0 w-[calc(100%-16rem)] bg-surface-container-low/60 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center h-16 px-gutter z-40">
+<div class="flex items-center gap-6">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">American Express Enterprise</span>
+<div class="h-6 w-px bg-white/10"></div>
+<nav class="flex gap-4">
+<a class="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors" href="#">Production</a>
+<a class="font-label-mono text-label-mono text-secondary font-bold opacity-80" href="#">Compliant</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors" href="#">Healthy</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-variant/50 border border-white/10 rounded-full pl-9 pr-4 py-1.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all w-64" placeholder="Search operations..." type="text">
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">settings_suggest</span></button>
+<div class="w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlHH9L-KnviMgU2fKTjndmulqK_Cusux8BrqE5Nx9n1_b3JKZP80RjJxcV5pdTnUBkIyqB7H3PFWj0ZfkPPZpwe6SV0ikJgXhoBelRVNKbMB7XVDF-CsMcVzoALlLxdiGXj_Do1lk0-HKO1fIns_JUcG8J4Cm3_i5-hHaRNKTUd90KayjQX_UeyJMFY50v-Uh_DZeJB3PoPaJw4BtOc-Ou7vLHhbQc-TX7U4qQJ2jyhvxir9o-NE32vhDDb_OQNY5ZQK41ng-uO14">
+</div>
+</div>
+</header>
+<main class="flex-1 px-gutter py-container-padding mt-16 overflow-y-auto"><p class="font-body-md text-on-surface-variant mb-gutter italic opacity-80">Context-aware governance powered by live trust and policy-as-code.</p>
+<div class="grid grid-cols-3 gap-gutter mb-gutter">
+<div class="glass-panel p-5 rounded-xl flex items-center justify-between">
+<div>
+<p class="font-label-mono text-label-mono text-on-surface-variant mb-1 uppercase tracking-wider">Active Policies</p>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">247</h2>
+</div>
+<div class="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+</div>
+<div class="glass-panel p-5 rounded-xl flex items-center justify-between border-error/30 bg-error-container/5">
+<div>
+<p class="font-label-mono text-label-mono text-error/80 mb-1 uppercase tracking-wider">Critical Rules</p>
+<h2 class="font-headline-lg text-headline-lg text-error drop-shadow-[0_0_8px_rgba(255,180,171,0.5)]">18</h2>
+</div>
+<div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">warning</span>
+</div>
+</div>
+<div class="glass-panel p-5 rounded-xl flex items-center justify-between border-tertiary/30 bg-tertiary-container/5">
+<div>
+<p class="font-label-mono text-label-mono text-tertiary/80 mb-1 uppercase tracking-wider">Compliance Rate</p>
+<h2 class="font-headline-lg text-headline-lg text-tertiary drop-shadow-[0_0_8px_rgba(78,222,163,0.5)]">99.98%</h2>
+</div>
+<div class="w-12 h-12 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">verified</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter mb-gutter">
+<div class="col-span-9 flex flex-col gap-gutter">
+<div class="glass-panel rounded-xl flex flex-col h-[300px]"><div class="p-4 border-b border-white/10 flex justify-between items-center bg-surface-container/40 rounded-t-xl"><h3 class="font-headline-sm text-headline-sm flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">psychology</span> Policy Brain Builder</h3><button class="bg-primary hover:bg-primary-fixed text-on-primary font-label-mono text-label-mono px-4 py-1.5 rounded flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">bolt</span> Deploy Rule</button></div><div class="p-6 flex-1 bg-surface-dim/30 overflow-x-auto relative"><div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.2) 1px, transparent 0); background-size: 20px 20px;"></div><div class="flex items-center gap-3 whitespace-nowrap mt-4"><div class="bg-surface-variant border border-outline-variant px-3 py-1.5 rounded text-secondary font-label-mono text-label-mono shadow-md">IF</div><div class="glass-panel px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer hover:border-primary/50 transition-colors"><span class="material-symbols-outlined text-sm text-on-surface-variant">verified_user</span><span class="font-body-sm text-body-sm">Trust Score</span><span class="text-on-surface-variant text-xs ml-2">&lt;</span><span class="font-label-mono text-label-mono text-primary bg-primary/10 px-2 py-0.5 rounded">70</span></div><div class="bg-surface-variant border border-outline-variant px-3 py-1.5 rounded text-tertiary font-label-mono text-label-mono shadow-md">AND</div><div class="glass-panel px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer hover:border-primary/50 transition-colors"><span class="material-symbols-outlined text-sm text-on-surface-variant">payments</span><span class="font-body-sm text-body-sm">Transaction</span><span class="text-on-surface-variant text-xs ml-2">&gt;</span><span class="font-label-mono text-label-mono text-error bg-error/10 px-2 py-0.5 rounded">$5,000</span></div><span class="material-symbols-outlined text-outline-variant mx-2">arrow_right_alt</span><div class="bg-surface-variant border border-outline-variant px-3 py-1.5 rounded text-primary font-label-mono text-label-mono shadow-md">THEN</div><div class="glass-panel px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer border-secondary/50 bg-secondary/5"><span class="material-symbols-outlined text-sm text-secondary">person_search</span><span class="font-body-sm text-body-sm text-secondary">Require Human Review</span></div></div><button class="mt-8 flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors font-label-mono text-label-mono text-xs border border-dashed border-outline-variant/50 rounded px-3 py-1 bg-surface-container/20"><span class="material-symbols-outlined text-sm">add</span> Add Condition</button></div></div>
+<div class="grid grid-cols-5 gap-4 mb-gutter"><div class="glass-panel p-3 rounded-lg border-white/5"><p class="text-status-label text-on-surface-variant uppercase mb-1">Policy Version</p><p class="text-body-sm font-semibold">v2.4.1-stable</p></div><div class="glass-panel p-3 rounded-lg border-white/5"><p class="text-status-label text-on-surface-variant uppercase mb-1">Policy Owner</p><p class="text-body-sm font-semibold">SecOps Team</p></div><div class="glass-panel p-3 rounded-lg border-white/5"><p class="text-status-label text-on-surface-variant uppercase mb-1">OPA Policy Status</p><p class="text-body-sm font-semibold text-tertiary">Synced</p></div><div class="glass-panel p-3 rounded-lg border-white/5"><p class="text-status-label text-on-surface-variant uppercase mb-1">Last Validation</p><p class="text-body-sm font-semibold">2m ago</p></div><div class="glass-panel p-3 rounded-lg border-white/5"><p class="text-status-label text-on-surface-variant uppercase mb-1">Rule Simulation</p><p class="text-body-sm font-semibold text-secondary">Passed</p></div></div><div class="glass-panel rounded-xl flex-1 flex flex-col">
+<div class="p-4 border-b border-white/10 flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm">Policy Ledger</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container-highest border border-white/10 rounded pl-8 pr-3 py-1 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary/50 w-48 text-sm" placeholder="Search rules..." type="text">
+</div>
+</div>
+<div class="p-0 overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-white/10 bg-surface-container/30 font-label-mono text-label-mono text-on-surface-variant">
+<th class="py-3 px-4 font-medium uppercase tracking-wider">Policy Name</th>
+<th class="py-3 px-4 font-medium uppercase tracking-wider">Target Domain</th>
+<th class="py-3 px-4 font-medium uppercase tracking-wider">Status</th>
+<th class="py-3 px-4 font-medium uppercase tracking-wider">Violations (24h)</th>
+<th class="py-3 px-4 text-right font-medium uppercase tracking-wider">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-white/5">
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="py-3 px-4 font-medium text-on-surface">Travel Budget Threshold</td>
+<td class="py-3 px-4 text-on-surface-variant"><span class="bg-surface-container-highest px-2 py-0.5 rounded text-xs border border-white/5">Expense</span></td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary glow-success"></span>
+<span class="text-tertiary text-xs font-semibold">Active</span>
+</div>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">0</td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="py-3 px-4 font-medium text-on-surface">Vendor Risk Screening</td>
+<td class="py-3 px-4 text-on-surface-variant"><span class="bg-surface-container-highest px-2 py-0.5 rounded text-xs border border-white/5">Procurement</span></td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary glow-success"></span>
+<span class="text-tertiary text-xs font-semibold">Active</span>
+</div>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">2</td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/20 transition-colors bg-error/5">
+<td class="py-3 px-4 font-medium text-on-surface">Cross-Border Data Transfer</td>
+<td class="py-3 px-4 text-on-surface-variant"><span class="bg-surface-container-highest px-2 py-0.5 rounded text-xs border border-white/5">Compliance</span></td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-error glow-critical"></span>
+<span class="text-error text-xs font-semibold">Flagged</span>
+</div>
+</td>
+<td class="py-3 px-4 font-medium text-error">14</td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/20 transition-colors">
+<td class="py-3 px-4 font-medium text-on-surface text-on-surface-variant/50 italic">Legacy API Auth Deprecation</td>
+<td class="py-3 px-4 text-on-surface-variant"><span class="bg-surface-container-highest px-2 py-0.5 rounded text-xs border border-white/5 opacity-50">Security</span></td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2 opacity-50">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="text-outline text-xs font-semibold">Paused</span>
+</div>
+</td>
+<td class="py-3 px-4 text-on-surface-variant opacity-50">-</td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors opacity-50"><span class="material-symbols-outlined text-sm">edit</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="col-span-3">
+<div class="glass-panel rounded-xl h-full flex flex-col border-error/20 bg-gradient-to-b from-error-container/5 to-transparent">
+<div class="p-4 border-b border-error/10 flex items-center gap-2 bg-error/5 rounded-t-xl">
+<span class="material-symbols-outlined text-error">crisis_alert</span>
+<h3 class="font-headline-sm text-headline-sm text-error">Emergency Controls</h3>
+</div>
+<div class="p-5 flex-1 flex flex-col gap-4">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Override standard automated governance protocols in critical scenarios.</p>
+<button class="w-full flex items-center justify-between p-3 rounded-lg border border-secondary/30 bg-secondary/5 hover:bg-secondary/10 transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary group-hover:animate-pulse">pause_circle</span>
+<span class="font-label-mono text-label-mono text-secondary font-semibold">Pause AI Agent</span>
+</div>
+</button>
+<button class="w-full flex items-center justify-between p-3 rounded-lg border border-primary/30 bg-primary-container/10 hover:bg-primary-container/20 transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">person_search</span>
+<span class="font-label-mono text-label-mono text-primary font-semibold">Force Human Review</span>
+</div>
+</button>
+<div class="mt-auto pt-6 border-t border-error/10">
+<button class="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-error text-on-error hover:bg-red-600 transition-colors shadow-[0_4px_14px_0_rgba(255,180,171,0.39)]">
+<span class="material-symbols-outlined text-sm">gpp_bad</span>
+<span class="font-label-mono text-label-mono font-bold uppercase tracking-wider">Emergency Lockdown</span>
+</button>
+<p class="text-center font-status-label text-status-label text-error/70 mt-2 uppercase">Requires Auth Token</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-gutter">
+<div class="glass-panel p-5 rounded-xl border border-white/5">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Violations Trend (7d)</h3>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">more_horiz</span>
+</div>
+<div class="h-32 flex items-end gap-2 px-2">
+<div class="w-full bg-surface-variant rounded-t relative h-[20%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-surface-variant rounded-t relative h-[40%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-surface-variant rounded-t relative h-[15%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-surface-variant rounded-t relative h-[60%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-primary/40 border-t-2 border-primary rounded-t relative h-[85%] group"><div class="absolute inset-0 bg-primary/30 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-surface-variant rounded-t relative h-[30%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+<div class="w-full bg-surface-variant rounded-t relative h-[10%] group"><div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+</div>
+</div>
+<div class="glass-panel p-5 rounded-xl border border-white/5">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Trust Distribution</h3>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">more_horiz</span>
+</div>
+<div class="flex flex-col gap-3">
+<div>
+<div class="flex justify-between text-xs mb-1 font-label-mono text-label-mono">
+<span class="text-tertiary">High Confidence</span>
+<span class="text-on-surface-variant">82%</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary h-1.5 rounded-full" style="width: 82%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1 font-label-mono text-label-mono">
+<span class="text-secondary">Needs Verification</span>
+<span class="text-on-surface-variant">15%</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 15%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1 font-label-mono text-label-mono">
+<span class="text-error">Flagged</span>
+<span class="text-on-surface-variant">3%</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-error h-1.5 rounded-full shadow-[0_0_8px_rgba(255,180,171,0.5)]" style="width: 3%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

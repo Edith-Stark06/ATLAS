@@ -1,0 +1,136 @@
+{
+  "designSystem": {
+    "displayName": "Mission Control Adaptive System",
+    "styleGuidelines": "## Brand & Style\nThe design system is engineered for high-stakes, mission-critical AI operations. The brand personality is authoritative, precise, and technologically advanced, evoking the feeling of a sophisticated command center. It targets enterprise operators and AI engineers who require immediate situational awareness and data-dense environments.\n\nThe visual style is a fusion of **Corporate Modern** and **Glassmorphism**, optimized for high performance. It utilizes deep layering, subtle luminescence, and a strict adherence to grid-based information density. The emotional response is one of absolute control, reliability, and \"always-on\" readiness.\n\n## Layout & Spacing\nThe layout follows a **Fluid Grid** model with a 4px base unit. This system is designed for high-density dashboards where horizontal real estate is at a premium.\n\n- **Grid:** 12-column layout for desktop with 16px gutters.\n- **Density:** Elements should be tightly packed but logically grouped using subtle background offsets rather than heavy margins. \n- **Adaptation:** On tablet, the grid shifts to 8 columns. On mobile, elements stack vertically, and secondary data visualizations are hidden or moved to drill-down views.\n- **Modular Panels:** Content is organized into \"Modules\" or \"Pods\" that can be resized or rearranged, mimicking a terminal interface.\n\n## Elevation & Depth\nDepth is conveyed through **Tonal Layering** and **Glassmorphism** rather than traditional shadows.\n\n- **Surfaces:** Use `#191b23` with 60-80% opacity and a `20px` backdrop blur for modals and floating panels.\n- **Borders:** Every container should have a 1px solid border. Use `rgba(255, 255, 255, 0.08)` for standard containers and `rgba(59, 130, 246, 0.3)` for active/focused states.\n- **Glows:** High-priority status indicators use a `0px 0px 8px` outer glow (drop-shadow with 0 spread) using the semantic color of the status.\n- **Stacking:** Higher elevation is represented by lighter background tones and increased border opacity.\n\n## Components\nConsistent implementation of these components ensures the system feels like a unified toolset.\n\n- **Buttons:** Primary buttons use a solid Electric Blue fill with white text. Secondary buttons use a ghost style with a thin border and no fill. All buttons feature a subtle 1px \"inner highlight\" on the top edge.\n- **Data Inputs:** Fields use the Charcoal background with a 1px border. On focus, the border transitions to Cyan with a faint outer glow.\n- **Status Indicators:** Use a \"Glow-Pip\" (a 6px circle with a matching color shadow) next to text labels.\n- **Cards/Modules:** Use the glassmorphic style described in Elevation. Headers within cards should have a subtle bottom border.\n- **Monitors/Chips:** For metadata tagging, use condensed chips with a dark fill and a border matching the category color. Use monospaced type for numerical chips.\n- **Progress Bars:** Use slim (4px height) bars. Critical progress should use a pulsed animation effect.",
+    "theme": {
+      "bodyFont": "INTER",
+      "bodyFontFamily": "Inter",
+      "colorMode": "DARK",
+      "colorVariant": "FIDELITY",
+      "customColor": "#3b82f6",
+      "designMd": "---\nname: Mission Control Adaptive System\ncolors:\n  surface: '#11131b'\n  surface-dim: '#11131b'\n  surface-bright: '#373942'\n  surface-container-lowest: '#0c0e15'\n  surface-container-low: '#191b23'\n  surface-container: '#1d1f27'\n  surface-container-high: '#282a32'\n  surface-container-highest: '#33343d'\n  on-surface: '#e1e1ed'\n  on-surface-variant: '#c2c6d6'\n  inverse-surface: '#e1e1ed'\n  inverse-on-surface: '#2e3039'\n  outline: '#8c909f'\n  outline-variant: '#424754'\n  surface-tint: '#adc6ff'\n  primary: '#adc6ff'\n  on-primary: '#002e6a'\n  primary-container: '#4d8eff'\n  on-primary-container: '#00285d'\n  inverse-primary: '#005ac2'\n  secondary: '#4cd7f6'\n  on-secondary: '#003640'\n  secondary-container: '#03b5d3'\n  on-secondary-container: '#00424e'\n  tertiary: '#4edea3'\n  on-tertiary: '#003824'\n  tertiary-container: '#00a572'\n  on-tertiary-container: '#00311f'\n  error: '#ffb4ab'\n  on-error: '#690005'\n  error-container: '#93000a'\n  on-error-container: '#ffdad6'\n  primary-fixed: '#d8e2ff'\n  primary-fixed-dim: '#adc6ff'\n  on-primary-fixed: '#001a42'\n  on-primary-fixed-variant: '#004395'\n  secondary-fixed: '#acedff'\n  secondary-fixed-dim: '#4cd7f6'\n  on-secondary-fixed: '#001f26'\n  on-secondary-fixed-variant: '#004e5c'\n  tertiary-fixed: '#6ffbbe'\n  tertiary-fixed-dim: '#4edea3'\n  on-tertiary-fixed: '#002113'\n  on-tertiary-fixed-variant: '#005236'\n  background: '#11131b'\n  on-background: '#e1e1ed'\n  surface-variant: '#33343d'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 32px\n    fontWeight: '700'\n    lineHeight: '1.2'\n    letterSpacing: -0.02em\n  headline-md:\n    fontFamily: Inter\n    fontSize: 24px\n    fontWeight: '600'\n    lineHeight: '1.3'\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 18px\n    fontWeight: '600'\n    lineHeight: '1.4'\n  body-lg:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '400'\n    lineHeight: '1.5'\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: '1.5'\n  body-sm:\n    fontFamily: Inter\n    fontSize: 13px\n    fontWeight: '400'\n    lineHeight: '1.4'\n  label-mono:\n    fontFamily: Geist\n    fontSize: 12px\n    fontWeight: '500'\n    lineHeight: '1'\n    letterSpacing: 0.05em\n  status-label:\n    fontFamily: Inter\n    fontSize: 11px\n    fontWeight: '700'\n    lineHeight: '1'\nrounded:\n  sm: 0.125rem\n  DEFAULT: 0.25rem\n  md: 0.375rem\n  lg: 0.5rem\n  xl: 0.75rem\n  full: 9999px\nspacing:\n  unit: 4px\n  container-padding: 24px\n  gutter: 16px\n  stack-sm: 8px\n  stack-md: 16px\n  stack-lg: 32px\n---\n\n## Brand & Style\nThe design system is engineered for high-stakes, mission-critical AI operations. The brand personality is authoritative, precise, and technologically advanced, evoking the feeling of a sophisticated command center. It targets enterprise operators and AI engineers who require immediate situational awareness and data-dense environments.\n\nThe visual style is a fusion of **Corporate Modern** and **Glassmorphism**, optimized for high performance. It utilizes deep layering, subtle luminescence, and a strict adherence to grid-based information density. The emotional response is one of absolute control, reliability, and \"always-on\" readiness.\n\n## Colors\nThe palette is rooted in a \"Deep Space\" foundation to minimize eye strain during long-duration monitoring. \n\n- **Primary & Secondary:** Electric Blue and Cyan are used exclusively for interactive elements, primary actions, and active states.\n- **Backgrounds:** Use `#0b0e15` for the base canvas and `#191b23` for persistent structural elements like sidebars and headers.\n- **Semantic Colors:** Emerald (Success), Amber (Warning), and Red (Critical) are reserved for system status and data validation. These should often be paired with subtle glows to indicate urgency.\n- **Accents:** Use low-opacity tints of the primary blue for hover states and selection rings.\n\n## Typography\nTypography prioritizes legibility in low-light environments. \n\n- **Headings:** Use Inter with tight letter-spacing and bold weights to establish a clear hierarchy.\n- **Body:** Standardized on 14px for the majority of data views to maintain high information density without sacrificing readability.\n- **Technical Data:** All IDs, hashes, coordinates, and system logs must use the monospaced **Geist** font to ensure character alignment and distinction between similar glyphs (e.g., 0 and O).\n- **Labels:** Small, uppercase labels are used for metadata and status indicators to differentiate them from actionable text.\n\n## Layout & Spacing\nThe layout follows a **Fluid Grid** model with a 4px base unit. This system is designed for high-density dashboards where horizontal real estate is at a premium.\n\n- **Grid:** 12-column layout for desktop with 16px gutters.\n- **Density:** Elements should be tightly packed but logically grouped using subtle background offsets rather than heavy margins. \n- **Adaptation:** On tablet, the grid shifts to 8 columns. On mobile, elements stack vertically, and secondary data visualizations are hidden or moved to drill-down views.\n- **Modular Panels:** Content is organized into \"Modules\" or \"Pods\" that can be resized or rearranged, mimicking a terminal interface.\n\n## Elevation & Depth\nDepth is conveyed through **Tonal Layering** and **Glassmorphism** rather than traditional shadows.\n\n- **Surfaces:** Use `#191b23` with 60-80% opacity and a `20px` backdrop blur for modals and floating panels.\n- **Borders:** Every container should have a 1px solid border. Use `rgba(255, 255, 255, 0.08)` for standard containers and `rgba(59, 130, 246, 0.3)` for active/focused states.\n- **Glows:** High-priority status indicators use a `0px 0px 8px` outer glow (drop-shadow with 0 spread) using the semantic color of the status.\n- **Stacking:** Higher elevation is represented by lighter background tones and increased border opacity.\n\n## Shapes\nThe shape language is \"Soft-Industrial.\" \n\n- **Corners:** A base radius of `4px` (Soft) is applied to all buttons, inputs, and cards. This provides a professional, \"machined\" look that feels more precise than fully rounded corners.\n- **Interactive Elements:** Buttons and form fields maintain consistent `4px` rounding.\n- **Status Pips:** Small indicators (like online/offline dots) are the only fully circular elements in the system.\n\n## Components\nConsistent implementation of these components ensures the system feels like a unified toolset.\n\n- **Buttons:** Primary buttons use a solid Electric Blue fill with white text. Secondary buttons use a ghost style with a thin border and no fill. All buttons feature a subtle 1px \"inner highlight\" on the top edge.\n- **Data Inputs:** Fields use the Charcoal background with a 1px border. On focus, the border transitions to Cyan with a faint outer glow.\n- **Status Indicators:** Use a \"Glow-Pip\" (a 6px circle with a matching color shadow) next to text labels.\n- **Cards/Modules:** Use the glassmorphic style described in Elevation. Headers within cards should have a subtle bottom border.\n- **Monitors/Chips:** For metadata tagging, use condensed chips with a dark fill and a border matching the category color. Use monospaced type for numerical chips.\n- **Progress Bars:** Use slim (4px height) bars. Critical progress should use a pulsed animation effect.",
+      "font": "INTER",
+      "headlineFont": "INTER",
+      "headlineFontFamily": "Inter",
+      "labelFont": "GEIST",
+      "labelFontFamily": "Geist",
+      "namedColors": {
+        "background": "#11131b",
+        "error": "#ffb4ab",
+        "error_container": "#93000a",
+        "inverse_on_surface": "#2e3039",
+        "inverse_primary": "#005ac2",
+        "inverse_surface": "#e1e1ed",
+        "on_background": "#e1e1ed",
+        "on_error": "#690005",
+        "on_error_container": "#ffdad6",
+        "on_primary": "#002e6a",
+        "on_primary_container": "#00285d",
+        "on_primary_fixed": "#001a42",
+        "on_primary_fixed_variant": "#004395",
+        "on_secondary": "#003640",
+        "on_secondary_container": "#00424e",
+        "on_secondary_fixed": "#001f26",
+        "on_secondary_fixed_variant": "#004e5c",
+        "on_surface": "#e1e1ed",
+        "on_surface_variant": "#c2c6d6",
+        "on_tertiary": "#003824",
+        "on_tertiary_container": "#00311f",
+        "on_tertiary_fixed": "#002113",
+        "on_tertiary_fixed_variant": "#005236",
+        "outline": "#8c909f",
+        "outline_variant": "#424754",
+        "primary": "#adc6ff",
+        "primary_container": "#4d8eff",
+        "primary_fixed": "#d8e2ff",
+        "primary_fixed_dim": "#adc6ff",
+        "secondary": "#4cd7f6",
+        "secondary_container": "#03b5d3",
+        "secondary_fixed": "#acedff",
+        "secondary_fixed_dim": "#4cd7f6",
+        "surface": "#11131b",
+        "surface_bright": "#373942",
+        "surface_container": "#1d1f27",
+        "surface_container_high": "#282a32",
+        "surface_container_highest": "#33343d",
+        "surface_container_low": "#191b23",
+        "surface_container_lowest": "#0c0e15",
+        "surface_dim": "#11131b",
+        "surface_tint": "#adc6ff",
+        "surface_variant": "#33343d",
+        "tertiary": "#4edea3",
+        "tertiary_container": "#00a572",
+        "tertiary_fixed": "#6ffbbe",
+        "tertiary_fixed_dim": "#4edea3"
+      },
+      "overrideNeutralColor": "#191b23",
+      "overridePrimaryColor": "#3b82f6",
+      "overrideSecondaryColor": "#06b6d4",
+      "overrideTertiaryColor": "#10b981",
+      "roundness": "ROUND_FOUR",
+      "spacing": {
+        "container-padding": "24px",
+        "gutter": "16px",
+        "stack-lg": "32px",
+        "stack-md": "16px",
+        "stack-sm": "8px",
+        "unit": "4px"
+      },
+      "spacingScale": 2,
+      "typography": {
+        "body-lg": {
+          "fontFamily": "Inter",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "1.5"
+        },
+        "body-md": {
+          "fontFamily": "Inter",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "1.5"
+        },
+        "body-sm": {
+          "fontFamily": "Inter",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "lineHeight": "1.4"
+        },
+        "headline-lg": {
+          "fontFamily": "Inter",
+          "fontSize": "32px",
+          "fontWeight": "700",
+          "letterSpacing": "-0.02em",
+          "lineHeight": "1.2"
+        },
+        "headline-md": {
+          "fontFamily": "Inter",
+          "fontSize": "24px",
+          "fontWeight": "600",
+          "lineHeight": "1.3"
+        },
+        "headline-sm": {
+          "fontFamily": "Inter",
+          "fontSize": "18px",
+          "fontWeight": "600",
+          "lineHeight": "1.4"
+        },
+        "label-mono": {
+          "fontFamily": "Geist",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "letterSpacing": "0.05em",
+          "lineHeight": "1"
+        },
+        "status-label": {
+          "fontFamily": "Inter",
+          "fontSize": "11px",
+          "fontWeight": "700",
+          "lineHeight": "1"
+        }
+      }
+    }
+  },
+  "name": "assets/6cd6facbf327406f8b2e182415cba2fa",
+  "version": "1"
+}
