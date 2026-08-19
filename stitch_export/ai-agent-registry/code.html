@@ -1,0 +1,524 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AI Agent Registry - ATLAS</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#8c909f",
+                    "on-primary": "#002e6a",
+                    "inverse-primary": "#005ac2",
+                    "on-tertiary-container": "#00311f",
+                    "on-error": "#690005",
+                    "surface-container": "#1d1f27",
+                    "background": "#11131b",
+                    "on-secondary-container": "#00424e",
+                    "secondary-fixed": "#acedff",
+                    "on-error-container": "#ffdad6",
+                    "on-primary-container": "#00285d",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "tertiary-container": "#00a572",
+                    "on-primary-fixed-variant": "#004395",
+                    "surface-container-high": "#282a32",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "on-surface-variant": "#c2c6d6",
+                    "surface-bright": "#373942",
+                    "tertiary": "#4edea3",
+                    "surface-variant": "#33343d",
+                    "primary-fixed": "#d8e2ff",
+                    "error": "#ffb4ab",
+                    "outline-variant": "#424754",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "on-tertiary-fixed": "#002113",
+                    "on-surface": "#e1e1ed",
+                    "on-tertiary": "#003824",
+                    "on-background": "#e1e1ed",
+                    "surface-tint": "#adc6ff",
+                    "tertiary-fixed": "#6ffbbe",
+                    "error-container": "#93000a",
+                    "primary": "#adc6ff",
+                    "surface-container-low": "#191b23",
+                    "on-secondary": "#003640",
+                    "surface-container-lowest": "#0c0e15",
+                    "surface-dim": "#11131b",
+                    "surface-container-highest": "#33343d",
+                    "on-secondary-fixed": "#001f26",
+                    "primary-fixed-dim": "#adc6ff",
+                    "secondary-container": "#03b5d3",
+                    "secondary": "#4cd7f6",
+                    "primary-container": "#4d8eff",
+                    "surface": "#11131b",
+                    "inverse-surface": "#e1e1ed",
+                    "on-primary-fixed": "#001a42",
+                    "inverse-on-surface": "#2e3039"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "container-padding": "24px",
+                    "stack-lg": "32px",
+                    "unit": "4px",
+                    "stack-md": "16px",
+                    "stack-sm": "8px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "label-mono": ["Geist"],
+                    "headline-lg": ["Inter"],
+                    "status-label": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-mono": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "status-label": ["11px", {"lineHeight": "1", "fontWeight": "700"}],
+                    "body-sm": ["13px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-sm": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Utility classes for specific glows/effects requested in style guide */
+        .glass-panel {
+            background-color: rgba(25, 27, 35, 0.6); /* surface-container-low/60 */
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glow-tertiary {
+            box-shadow: 0 0 8px rgba(78, 222, 163, 0.6); /* tertiary */
+        }
+        .glow-error {
+            box-shadow: 0 0 8px rgba(255, 180, 171, 0.6); /* error */
+        }
+        .glow-secondary {
+            box-shadow: 0 0 8px rgba(76, 215, 246, 0.6); /* secondary */
+        }
+        
+        /* Hide scrollbar for cleaner UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background h-screen overflow-hidden flex font-body-md text-body-md selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (from JSON) -->
+<nav class="fixed left-0 h-screen w-64 bg-surface-container/80 backdrop-blur-xl border-r border-white/10 shadow-2xl flex flex-col border-r border-outline-variant/20 z-50">
+<!-- Header -->
+<div class="p-container-padding flex items-center gap-stack-sm border-b border-white/10">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">language</span>
+</div>
+<div>
+<h1 class="font-headline-lg text-headline-lg font-bold tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(173,198,255,0.3)]">ATLAS</h1>
+<p class="font-label-mono text-label-mono text-on-surface-variant">AI Trust OS</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 overflow-y-auto py-stack-md px-stack-sm flex flex-col gap-unit">
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-mono text-label-mono">Control Center</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">security</span>
+<span class="font-label-mono text-label-mono">Trust Engine</span>
+</a>
+<!-- ACTIVE TAB: AI Agents -->
+<a class="flex flex-col px-stack-md py-stack-sm rounded text-primary bg-primary-container/20 border-r-2 border-primary shadow-[0_0_12px_-2px_rgba(173,198,255,0.4)] transition-transform scale-[0.99]" href="#">
+<div class="flex items-center gap-stack-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+<span class="font-label-mono text-label-mono">AI Agents</span>
+</div>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">gavel</span>
+<span class="font-label-mono text-label-mono">Policy Governance</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">troubleshoot</span>
+<span class="font-label-mono text-label-mono">Decision Investigation</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+<span class="font-label-mono text-label-mono">Risk Simulation</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">visibility</span>
+<span class="font-label-mono text-label-mono">Explainability</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">history_edu</span>
+<span class="font-label-mono text-label-mono">Governance Ledger</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">query_stats</span>
+<span class="font-label-mono text-label-mono">Analytics</span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+<span class="font-label-mono text-label-mono flex-1">Alerts</span>
+<span class="w-2 h-2 rounded-full bg-error glow-error"></span>
+</a>
+<a class="flex items-center gap-stack-sm px-stack-md py-stack-sm rounded text-on-surface-variant hover:bg-surface-variant/40 hover:text-on-surface transition-all duration-200 mt-auto" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-mono text-label-mono">Settings</span>
+</a>
+</div>
+<!-- Footer / CTA -->
+<div class="p-stack-md border-t border-white/10 flex flex-col gap-stack-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary glow-tertiary"></span>
+<span class="font-status-label text-status-label text-tertiary uppercase tracking-widest">Online</span>
+</div>
+</div>
+<div class="flex flex-col gap-unit">
+<span class="font-label-mono text-label-mono text-on-surface-variant opacity-70">AI Trust OS v1.0</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant opacity-70">Enterprise Edition</span>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col min-w-0 bg-background relative z-0">
+<!-- Abstract Background Glow for ambiance -->
+<div class="absolute top-0 left-1/4 w-[800px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<!-- TopNavBar (from JSON) -->
+<header class="h-16 px-gutter flex justify-between items-center bg-surface-container-low/60 backdrop-blur-md border-b border-white/10 shadow-sm z-10 w-full shrink-0">
+<div class="flex items-center gap-stack-lg">
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">American Express Enterprise</h2>
+<nav class="hidden md:flex gap-stack-md">
+<!-- Nav links from JSON. Assuming none are 'active' globally as SideNav drives main state here, but we'll highlight the first as generic environment state if needed, or just standard links -->
+<a class="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors" href="#">Production</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors" href="#">Compliant</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors" href="#">Healthy</a>
+</nav>
+</div>
+<div class="flex items-center gap-stack-md">
+<!-- Search on right -->
+<div class="relative group hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="bg-surface-container border border-outline-variant/40 rounded-full py-1.5 pl-9 pr-4 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all w-64 glass-panel" placeholder="Search operations..." type="text">
+</div>
+<div class="flex gap-stack-sm">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary glow-secondary"></span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">settings_suggest</span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full border border-outline-variant/50 overflow-hidden ml-stack-sm">
+<div class="w-full h-full bg-cover bg-center" data-alt="A highly detailed close up of an abstract, dark blue corporate avatar placeholder graphic with subtle metallic cyan glowing edges, lit by soft rim lighting in a sleek high-tech environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuATtozyauZ_rFhODF39hWq87oNRwrUMgfx7llwt_Vrw7SGH91z13Q-frkg6fTlb-UA4p4AHaWNLldla6fovR56rae1uNTePvmoJhPQnLqA17sbvPf9y5pajE5PSfsi_qVPdON2Havg1Vq5DVFdNHaeqN17moeEMQ2oE-Y4oqKebj_EOW2x5M5bq3RPJAXAv7Xx0-eIYCWeKFbjVGs9RhQxo48GIEFbTZm-yomXz5ZQqP5F3tb8Vx_lhU9ETynaHWJRU8gzmk-ohBT4')"></div>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-1 overflow-hidden p-container-padding flex gap-container-padding">
+<!-- Left Side: Agent Registry Grid -->
+<section class="flex-[2] flex flex-col gap-stack-md min-w-0">
+<!-- Section Header & Filters -->
+<div class="flex items-end justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1">Agent Registry</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Complete inventory of 1,248 registered autonomous entities.</p>
+</div>
+<div class="flex gap-stack-sm">
+<!-- Filter Chips -->
+<button class="glass-panel px-3 py-1.5 rounded flex items-center gap-2 hover:bg-surface-variant/50 transition-colors">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">filter_list</span>
+<span class="font-label-mono text-label-mono text-on-surface">All Status</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_down</span>
+</button>
+<button class="glass-panel px-3 py-1.5 rounded flex items-center gap-2 hover:bg-surface-variant/50 transition-colors">
+<span class="font-label-mono text-label-mono text-on-surface">Category</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_down</span>
+</button>
+</div>
+</div>
+<!-- Data Grid (Stylized Pods instead of basic table) -->
+<div class="flex-1 overflow-y-auto pr-2 flex flex-col gap-unit pb-container-padding">
+<!-- Table Header (Simulated for alignment) -->
+<div class="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-2 border-b border-outline-variant/20 sticky top-0 bg-background/90 backdrop-blur-md z-10 mb-2"><span class="font-label-mono text-label-mono text-on-surface-variant">Agent Identity</span><span class="font-label-mono text-label-mono text-on-surface-variant">Owner &amp; Dept</span><span class="font-label-mono text-label-mono text-on-surface-variant">Trust &amp; Trend</span><span class="font-label-mono text-label-mono text-on-surface-variant">Model &amp; Audit</span><span class="font-label-mono text-label-mono text-on-surface-variant">Last Decision</span><span class="font-label-mono text-label-mono text-on-surface-variant">Status</span></div>
+<!-- Row 1 (Active/Selected State Simulation) -->
+<button class="glass-panel border-primary/50 bg-primary/5 text-left w-full grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-4 items-center p-4 rounded hover:bg-primary/10 transition-colors group relative overflow-hidden focus:outline-none"><div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div><div class="flex items-center gap-3"><div class="w-10 h-10 rounded bg-surface-container border border-white/10 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-secondary">flight_takeoff</span></div><div><h3 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Corporate Travel Concierge</h3><p class="font-label-mono text-label-mono text-on-surface-variant">ID: AGT-8821-CTX</p></div></div><div><p class="font-body-sm text-body-sm text-on-surface">HR Ops</p><p class="font-label-mono text-label-mono text-outline">Travel &amp; Logistics</p></div><div class="flex flex-col gap-1"><div class="flex items-baseline gap-1"><span class="font-body-lg text-body-lg font-bold text-tertiary">98</span><span class="font-status-label text-status-label text-on-surface-variant">/100</span></div><span class="font-label-mono text-[10px] text-tertiary">+2.4% Trend</span></div><div><p class="font-body-sm text-body-sm text-on-surface">GPT-4-Turbo</p><p class="font-label-mono text-label-mono text-outline">Audit: 10-27</p></div><div><p class="font-label-mono text-label-mono text-on-surface">Approved</p><p class="font-label-mono text-label-mono text-outline">2m ago</p></div><div><div class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-tertiary glow-tertiary"></span><span class="font-body-sm text-body-sm text-on-surface">Active</span></div><div class="mt-1"><span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-mono text-[10px] text-on-surface"><span class="material-symbols-outlined text-[12px] text-secondary">vpn_key</span>Lvl 2</span></div></div></button>
+<!-- Row 2 -->
+<button class="glass-panel text-left w-full grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-4 items-center p-4 rounded hover:bg-surface-variant/40 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container border border-white/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">policy</span>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Fraud Sentinel AI</h3>
+<p class="font-label-mono text-label-mono text-on-surface-variant">ID: AGT-992-FS</p>
+</div>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface">Transaction Monitor</p>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">badge</span>
+<span class="font-label-mono text-label-mono text-outline">Finance</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-baseline gap-1">
+<span class="font-body-lg text-body-lg font-bold text-tertiary">92</span>
+<span class="font-status-label text-status-label text-on-surface-variant">/100</span>
+</div>
+<svg class="w-full h-4" preserveAspectRatio="none" viewBox="0 0 100 16">
+<path d="M0,8 L20,10 L40,6 L60,8 L80,2 L100,4" fill="none" stroke="#4edea3" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</div>
+<div>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-mono text-label-mono text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-error">admin_panel_settings</span>
+                                Lvl 4
+                            </span>
+</div>
+<div>
+<p class="font-label-mono text-label-mono text-on-surface">12s ago</p>
+<p class="font-label-mono text-label-mono text-outline">Flagged TXN</p>
+</div>
+<div>
+<div class="inline-flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary glow-tertiary"></span>
+<span class="font-body-sm text-body-sm text-on-surface">Active</span>
+</div>
+</div>
+</button>
+<!-- Row 3 (Under Review) -->
+<button class="glass-panel text-left w-full grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-4 items-center p-4 rounded hover:bg-surface-variant/40 transition-colors group">
+<div class="flex items-center gap-3 opacity-80">
+<div class="w-10 h-10 rounded bg-surface-container border border-secondary/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary">inventory_2</span>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Vendor Onboarding</h3>
+<p class="font-label-mono text-label-mono text-on-surface-variant">ID: AGT-411-VO</p>
+</div>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface">Procurement Checks</p>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">badge</span>
+<span class="font-label-mono text-label-mono text-outline">Supply Chain</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-baseline gap-1">
+<span class="font-body-lg text-body-lg font-bold text-secondary">74</span>
+<span class="font-status-label text-status-label text-on-surface-variant">/100</span>
+</div>
+<svg class="w-full h-4" preserveAspectRatio="none" viewBox="0 0 100 16">
+<path d="M0,4 L20,8 L40,12 L60,10 L80,14 L100,12" fill="none" stroke="#4cd7f6" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</div>
+<div>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-mono text-label-mono text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-secondary">vpn_key</span>
+                                Lvl 3
+                            </span>
+</div>
+<div>
+<p class="font-label-mono text-label-mono text-on-surface">1h ago</p>
+<p class="font-label-mono text-label-mono text-outline">Policy Drift</p>
+</div>
+<div>
+<div class="inline-flex items-center gap-2 px-2 py-1 rounded bg-secondary/10 border border-secondary/20">
+<span class="w-2 h-2 rounded-full bg-secondary glow-secondary"></span>
+<span class="font-body-sm text-body-sm text-secondary">Under Review</span>
+</div>
+</div>
+</button>
+<!-- Row 4 (Suspended) -->
+<button class="glass-panel text-left w-full grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-4 items-center p-4 rounded hover:bg-surface-variant/40 transition-colors group opacity-60 hover:opacity-100">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container border border-error/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-error">campaign</span>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Social Media Bot</h3>
+<p class="font-label-mono text-label-mono text-on-surface-variant">ID: AGT-102-SM</p>
+</div>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface">Brand Engagement</p>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">badge</span>
+<span class="font-label-mono text-label-mono text-outline">Comms</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-baseline gap-1">
+<span class="font-body-lg text-body-lg font-bold text-error">45</span>
+<span class="font-status-label text-status-label text-on-surface-variant">/100</span>
+</div>
+<svg class="w-full h-4" preserveAspectRatio="none" viewBox="0 0 100 16">
+<path d="M0,2 L20,4 L40,8 L60,12 L80,14 L100,16" fill="none" stroke="#ffb4ab" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</div>
+<div>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 font-label-mono text-label-mono text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-outline">vpn_key</span>
+                                Lvl 1
+                            </span>
+</div>
+<div>
+<p class="font-label-mono text-label-mono text-on-surface">2d ago</p>
+<p class="font-label-mono text-label-mono text-error">Halted</p>
+</div>
+<div>
+<div class="inline-flex items-center gap-2 px-2 py-1 rounded bg-error/10 border border-error/20">
+<span class="w-2 h-2 rounded-full bg-error glow-error"></span>
+<span class="font-body-sm text-body-sm text-error">Suspended</span>
+</div>
+</div>
+</button>
+</div>
+</section>
+<!-- Right Side: Inspector/Summary Card -->
+<aside class="flex-[1] min-w-[320px] max-w-[400px] flex flex-col h-full glass-panel rounded-xl overflow-hidden shadow-2xl border-primary/20">
+<!-- Inspector Header -->
+<div class="p-stack-md border-b border-white/10 bg-surface-container-high/40 flex items-start justify-between relative overflow-hidden">
+<!-- Subtle background mesh/gradient for tech feel -->
+<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background/0 to-background/0 pointer-events-none"></div>
+<div class="relative z-10 flex gap-4 w-full">
+<div class="w-12 h-12 rounded bg-surface border border-white/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary text-[24px]">flight_takeoff</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-mono text-label-mono text-primary border border-primary/30 bg-primary/10 px-2 py-0.5 rounded text-[10px]">LIFECYCLE: ACTIVE</span>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</button>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight">Corporate Travel Concierge</h2>
+<p class="font-label-mono text-label-mono text-outline mt-1">ID: AGT-8821-CTX</p>
+</div>
+</div>
+</div>
+<!-- Inspector Content (Scrollable) -->
+<div class="flex-1 overflow-y-auto p-stack-md flex flex-col gap-stack-lg">
+<!-- Action Buttons -->
+<div class="grid grid-cols-2 gap-unit">
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-body-sm text-body-sm font-semibold py-2 rounded flex items-center justify-center gap-2 transition-colors border-t border-white/20">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+                            Console
+                        </button>
+<button class="bg-surface-container border border-outline-variant/30 hover:border-outline-variant text-on-surface font-body-sm text-body-sm py-2 rounded flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[18px]">pause_circle</span>
+                            Halt
+                        </button>
+</div>
+<!-- Assurance Metrics -->
+<div>
+<h3 class="font-label-mono text-label-mono text-on-surface-variant mb-4 flex items-center gap-2 uppercase tracking-wider">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+                            Lifecycle Assurance
+                        </h3>
+<div class="grid grid-cols-2 gap-4">
+<!-- Metric Pod -->
+<div class="bg-surface-container/50 border border-white/5 rounded p-3 flex flex-col gap-2">
+<span class="font-label-mono text-label-mono text-outline">Model Robustness</span>
+<div class="flex items-end justify-between">
+<span class="font-headline-sm text-headline-sm text-tertiary">99.2%</span>
+<span class="material-symbols-outlined text-tertiary text-[16px]">trending_up</span>
+</div>
+<div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mt-1">
+<div class="bg-tertiary h-full w-[99%]"></div>
+</div>
+</div>
+<!-- Metric Pod -->
+<div class="bg-surface-container/50 border border-white/5 rounded p-3 flex flex-col gap-2">
+<span class="font-label-mono text-label-mono text-outline">Data Privacy</span>
+<div class="flex items-end justify-between">
+<span class="font-headline-sm text-headline-sm text-tertiary">100%</span>
+<span class="material-symbols-outlined text-tertiary text-[16px]">lock</span>
+</div>
+<div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mt-1">
+<div class="bg-tertiary h-full w-full"></div>
+</div>
+</div>
+<!-- Metric Pod (Warning state) -->
+<div class="bg-surface-container/50 border border-secondary/20 rounded p-3 flex flex-col gap-2 bg-secondary/5">
+<span class="font-label-mono text-label-mono text-secondary">Drift Variance</span>
+<div class="flex items-end justify-between">
+<span class="font-headline-sm text-headline-sm text-secondary">4.1%</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">warning</span>
+</div>
+<div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mt-1">
+<div class="bg-secondary h-full w-[40%]"></div>
+</div>
+</div>
+<!-- Metric Pod -->
+<div class="bg-surface-container/50 border border-white/5 rounded p-3 flex flex-col gap-2">
+<span class="font-label-mono text-label-mono text-outline">Bias Check</span>
+<div class="flex items-end justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface">Pass</span>
+<span class="material-symbols-outlined text-outline text-[16px]">rule</span>
+</div>
+<div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mt-1">
+<div class="bg-outline h-full w-[80%]"></div>
+</div>
+</div>
+<div class="bg-surface-container/50 border border-white/5 rounded p-3 flex flex-col gap-2"><span class="font-label-mono text-label-mono text-outline">Current Trust Trend</span><div class="flex items-end justify-between"><span class="font-headline-sm text-headline-sm text-tertiary">+2.4%</span><span class="material-symbols-outlined text-tertiary text-[16px]">trending_up</span></div></div><div class="bg-surface-container/50 border border-white/5 rounded p-3 flex flex-col gap-2"><span class="font-label-mono text-label-mono text-outline">Expected Trust</span><div class="flex items-end justify-between"><span class="font-headline-sm text-headline-sm text-on-surface">99.5%</span><span class="material-symbols-outlined text-outline text-[16px]">target</span></div></div></div>
+</div>
+<!-- Metadata Details -->
+<div class="bg-surface-container-lowest/50 border border-outline-variant/20 rounded p-4 font-label-mono text-label-mono">
+<div class="flex justify-between py-2 border-b border-white/5">
+<span class="text-outline">Deployment Target</span>
+<span class="text-on-surface">AWS us-east-1</span>
+</div>
+<div class="flex justify-between py-2 border-b border-white/5">
+<span class="text-outline">Base Model</span>
+<span class="text-on-surface">GPT-4-Turbo</span>
+</div>
+<div class="flex justify-between py-2">
+<span class="text-outline">Last Audit</span>
+<span class="text-on-surface">2023-10-27 14:00Z</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+
+
+</body></html>
