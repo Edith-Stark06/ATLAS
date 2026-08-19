@@ -6,11 +6,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { Pipeline } from "@/components/ui/pipeline";
 import { StatusChip } from "@/components/ui/status-chip";
-import { SIMULATIONS } from "@/lib/mock-data";
+import { ApiError } from "@/components/ui/api-error";
+import { fetchSimulations, tryFetch } from "@/lib/api";
 import type { SimulationOutcome } from "@/lib/types";
 import { cn, formatPercent, formatTime, formatUsd } from "@/lib/utils";
 
 export const metadata = { title: "Simulation Engine — ATLAS" };
+export const dynamic = "force-dynamic";
 
 const EXECUTION_STAGES = [
   { key: "request", label: "Agent Request", status: "done" as const },
@@ -107,8 +109,23 @@ function ScenarioCard({ outcome, index }: { outcome: SimulationOutcome; index: n
   );
 }
 
-export default function SimulationsPage() {
-  const [active, ...history] = SIMULATIONS;
+export default async function SimulationsPage() {
+  const result = await tryFetch(fetchSimulations);
+
+  if (!result.ok || result.data.length === 0) {
+    return (
+      <>
+        <PageHeader
+          title="Simulation"
+          highlight="Engine"
+          description="Every autonomous financial decision is simulated before execution to predict downstream consequences."
+        />
+        <ApiError error={result.ok ? "No simulation runs recorded yet." : result.error} />
+      </>
+    );
+  }
+
+  const [active, ...history] = result.data;
 
   const summary = [
     { label: "Agent", value: active.agentName },
@@ -135,7 +152,9 @@ export default function SimulationsPage() {
         <PanelHeader
           title={active.scenario}
           icon={FlaskConical}
-          action={<StatusChip tone="info">Running</StatusChip>}
+          // These are completed runs read back from the ledger, not live ones —
+          // say what the simulation concluded rather than claiming it is running.
+          action={<OutcomeBadge outcome={active.recommendation} />}
         />
         <dl className="grid grid-cols-2 divide-white/5 md:grid-cols-5 md:divide-x">
           {summary.map((item) => (

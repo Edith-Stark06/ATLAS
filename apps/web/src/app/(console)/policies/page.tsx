@@ -14,11 +14,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusChip, type ChipTone } from "@/components/ui/status-chip";
-import { POLICIES } from "@/lib/mock-data";
+import { ApiError } from "@/components/ui/api-error";
+import { fetchPolicies, tryFetch } from "@/lib/api";
 import type { Severity } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Policy Governance — ATLAS" };
+export const dynamic = "force-dynamic";
 
 const SEVERITY_TONE: Record<Severity, ChipTone> = {
   low: "neutral",
@@ -77,7 +79,23 @@ function RuleClause({
   );
 }
 
-export default function PolicyGovernancePage() {
+export default async function PolicyGovernancePage() {
+  const result = await tryFetch(fetchPolicies);
+
+  if (!result.ok) {
+    return (
+      <>
+        <PageHeader
+          title="Policy"
+          highlight="Governance"
+          description="Context-aware governance powered by live trust signals and policy-as-code."
+        />
+        <ApiError error={result.error} />
+      </>
+    );
+  }
+
+  const POLICIES = result.data;
   const criticalCount = POLICIES.filter((p) => p.severity === "critical").length;
   const violations = POLICIES.reduce((sum, p) => sum + p.violations24h, 0);
 

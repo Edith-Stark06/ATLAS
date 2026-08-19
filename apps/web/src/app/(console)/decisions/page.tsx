@@ -6,18 +6,36 @@ import { OutcomeBadge, riskColor } from "@/components/ui/outcome-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
-import { DECISIONS } from "@/lib/mock-data";
+import { ApiError } from "@/components/ui/api-error";
+import { fetchDecisions, tryFetch } from "@/lib/api";
 import { cn, formatTime, formatUsd } from "@/lib/utils";
 
 export const metadata = { title: "Decision Intelligence — ATLAS" };
+export const dynamic = "force-dynamic";
 
-export default function DecisionsPage() {
+export default async function DecisionsPage() {
+  const result = await tryFetch(fetchDecisions);
+
+  if (!result.ok) {
+    return (
+      <>
+        <PageHeader
+          title="Decision"
+          highlight="Intelligence"
+          description="Every autonomous action that passed through the governance pipeline."
+        />
+        <ApiError error={result.error} />
+      </>
+    );
+  }
+
+  const DECISIONS = result.data;
   const approved = DECISIONS.filter((d) => d.outcome === "approved").length;
   const escalated = DECISIONS.filter((d) => d.outcome === "escalated").length;
   const blocked = DECISIONS.filter((d) => d.outcome === "blocked").length;
-  const avgLatency = Math.round(
-    DECISIONS.reduce((sum, d) => sum + d.latencyMs, 0) / DECISIONS.length,
-  );
+  const avgLatency = DECISIONS.length
+    ? Math.round(DECISIONS.reduce((sum, d) => sum + d.latencyMs, 0) / DECISIONS.length)
+    : 0;
 
   return (
     <>

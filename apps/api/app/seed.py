@@ -1,0 +1,754 @@
+"""Seed the database with the reference governance dataset.
+
+Run with `python -m app.seed` (add `--reset` to wipe first). Idempotent:
+re-running replaces the seeded rows rather than duplicating them.
+
+This is the same dataset the console rendered from fixtures in Phase 1, so the
+UI is directly comparable before and after the switch to live data.
+"""
+
+import argparse
+import asyncio
+from datetime import UTC, date, datetime
+from decimal import Decimal
+
+from sqlalchemy import delete
+
+from app.core.compat import configure_event_loop
+from app.core.database import AsyncSessionLocal
+from app.models import (
+    ActivityItem,
+    ActivityTone,
+    Agent,
+    Decision,
+    DecisionOutcome,
+    LifecycleState,
+    Policy,
+    PolicyCheck,
+    Severity,
+    SimulationOutcome,
+    SimulationRun,
+    TrustFactor,
+)
+
+
+def _dt(iso: str) -> datetime:
+    return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(UTC)
+
+
+FACTOR_LABELS = {
+    "behavior": "Behavior Consistency",
+    "policy": "Policy Compliance",
+    "risk": "Risk Exposure",
+    "context": "Context Awareness",
+    "history": "Historical Reliability",
+}
+FACTOR_WEIGHTS = {"behavior": 0.22, "policy": 0.24, "risk": 0.20, "context": 0.14, "history": 0.20}
+
+
+def _factors(**scores: int) -> list[TrustFactor]:
+    return [
+        TrustFactor(key=key, label=FACTOR_LABELS[key], score=score, weight=FACTOR_WEIGHTS[key])
+        for key, score in scores.items()
+    ]
+
+
+def build_agents() -> list[Agent]:
+    return [
+        Agent(
+            id="agt-travel-01",
+            name="Travel Booking Agent",
+            capability="Travel & Expense",
+            owner="Corporate Services",
+            lifecycle=LifecycleState.TRUSTED,
+            trust_score=94,
+            trust_delta=1.2,
+            decisions_today=4820,
+            last_active_at=_dt("2026-08-19T14:52:10Z"),
+            model="GPT-4-Turbo",
+            authority_level=2,
+            last_audit_at=date(2026, 8, 12),
+            last_decision="Approved booking TRX-992A",
+            factors=_factors(behavior=96, policy=99, risk=90, context=92, history=95),
+        ),
+        Agent(
+            id="agt-expense-02",
+            name="Expense Approval Agent",
+            capability="Travel & Expense",
+            owner="Finance Operations",
+            lifecycle=LifecycleState.REVIEW,
+            trust_score=72,
+            trust_delta=-6.4,
+            decisions_today=1930,
+            last_active_at=_dt("2026-08-19T14:49:38Z"),
+            model="Claude-Sonnet-4",
+            authority_level=2,
+            last_audit_at=date(2026, 7, 30),
+            last_decision="Escalated reimbursement TRX-9917",
+            factors=_factors(behavior=68, policy=81, risk=64, context=75, history=73),
+        ),
+        Agent(
+            id="agt-dispute-03",
+            name="Dispute Resolution Agent",
+            capability="Customer Servicing",
+            owner="Card Member Services",
+            lifecycle=LifecycleState.ANOMALY,
+            trust_score=87,
+            trust_delta=-4.1,
+            decisions_today=2610,
+            last_active_at=_dt("2026-08-19T14:46:02Z"),
+            model="GPT-4o",
+            authority_level=3,
+            last_audit_at=date(2026, 8, 5),
+            last_decision="Issued goodwill credit TRX-9902",
+            factors=_factors(behavior=82, policy=94, risk=85, context=88, history=89),
+        ),
+        Agent(
+            id="agt-fraud-04",
+            name="Fraud Detection Agent",
+            capability="Risk & Fraud",
+            owner="Global Risk",
+            lifecycle=LifecycleState.TRUSTED,
+            trust_score=97,
+            trust_delta=0.4,
+            decisions_today=12470,
+            last_active_at=_dt("2026-08-19T14:53:01Z"),
+            model="ATLAS-Risk-v3",
+            authority_level=4,
+            last_audit_at=date(2026, 8, 18),
+            last_decision="Froze card TRX-9871",
+            factors=_factors(behavior=98, policy=99, risk=95, context=96, history=97),
+        ),
+        Agent(
+            id="agt-payment-05",
+            name="Payment Orchestration Agent",
+            capability="Payments",
+            owner="Payments Platform",
+            lifecycle=LifecycleState.HEALTHY,
+            trust_score=89,
+            trust_delta=2.0,
+            decisions_today=8340,
+            last_active_at=_dt("2026-08-19T14:51:22Z"),
+            model="Claude-Opus-4",
+            authority_level=3,
+            last_audit_at=date(2026, 8, 9),
+            last_decision="Blocked settlement TRX-9884",
+            factors=_factors(behavior=90, policy=93, risk=84, context=87, history=90),
+        ),
+        Agent(
+            id="agt-onboard-06",
+            name="Merchant Onboarding Agent",
+            capability="Merchant Services",
+            owner="Merchant Platform",
+            lifecycle=LifecycleState.ONBOARDING,
+            trust_score=58,
+            trust_delta=5.8,
+            decisions_today=210,
+            last_active_at=_dt("2026-08-19T14:30:07Z"),
+            model="Llama-4-70B",
+            authority_level=1,
+            last_audit_at=date(2026, 8, 16),
+            last_decision="Deferred KYC review MRC-221",
+            factors=_factors(behavior=55, policy=70, risk=48, context=60, history=52),
+        ),
+    ]
+
+
+def build_policies() -> list[Policy]:
+    rows = [
+        (
+            "pol-01",
+            "Travel Spend Ceiling",
+            "v2.4.1",
+            "Travel & Expense agents",
+            True,
+            Severity.HIGH,
+            "2026-08-19T14:41:55Z",
+            48200,
+            12,
+        ),
+        (
+            "pol-04",
+            "Entertainment Spend Limit",
+            "v1.9.0",
+            "Expense agents",
+            True,
+            Severity.MEDIUM,
+            "2026-08-17T09:12:00Z",
+            19300,
+            61,
+        ),
+        (
+            "pol-06",
+            "Sanctions Screening",
+            "v5.0.2",
+            "All agents",
+            True,
+            Severity.CRITICAL,
+            "2026-08-12T16:04:30Z",
+            241000,
+            0,
+        ),
+        (
+            "pol-09",
+            "Cross-Border Settlement Cap",
+            "v3.1.0",
+            "Payment agents",
+            True,
+            Severity.CRITICAL,
+            "2026-08-15T11:22:10Z",
+            8340,
+            3,
+        ),
+        (
+            "pol-10",
+            "Liquidity Buffer",
+            "v2.0.4",
+            "Payment agents",
+            True,
+            Severity.HIGH,
+            "2026-08-18T08:47:19Z",
+            8340,
+            7,
+        ),
+        (
+            "pol-07",
+            "Goodwill Credit Ceiling",
+            "v1.4.2",
+            "Servicing agents",
+            True,
+            Severity.LOW,
+            "2026-08-10T13:55:41Z",
+            26100,
+            18,
+        ),
+        (
+            "pol-13",
+            "After-Hours Autonomy Freeze",
+            "v0.9.0",
+            "All agents",
+            False,
+            Severity.MEDIUM,
+            "2026-08-05T18:20:00Z",
+            0,
+            0,
+        ),
+    ]
+    return [
+        Policy(
+            id=pid,
+            name=name,
+            version=version,
+            scope=scope,
+            enabled=enabled,
+            severity=severity,
+            updated_at=_dt(updated),
+            evaluations_24h=evals,
+            violations_24h=viol,
+        )
+        for pid, name, version, scope, enabled, severity, updated, evals, viol in rows
+    ]
+
+
+def build_decisions() -> list[Decision]:
+    return [
+        Decision(
+            id="EXP-8892-BL",
+            agent_id="agt-expense-02",
+            action="Approve reimbursement — TechSolutions Inc",
+            amount_usd=Decimal("12450.00"),
+            outcome=DecisionOutcome.BLOCKED,
+            trust_score=71,
+            risk_score=84,
+            decided_at=_dt("2026-08-19T07:14:22Z"),
+            latency_ms=214,
+            rationale=(
+                "Blocked pending human review. Three compounding risk factors crossed the "
+                "autonomous execution threshold simultaneously, and the agent's trust score "
+                "had already fallen 23 points in the preceding 24 hours."
+            ),
+            investigation={
+                "summary": (
+                    "The transaction requested by the Expense Approval Agent for $12,450.00 to "
+                    "vendor 'TechSolutions Inc' was blocked due to multiple compounding risk "
+                    "factors crossing the autonomous execution threshold."
+                ),
+                "criticalFactors": [
+                    {
+                        "key": "threshold",
+                        "title": "Spending Threshold Anomaly",
+                        "detail": (
+                            "Vendor 'TechSolutions Inc' has a historical average transaction size "
+                            "of $2,100. This request exceeds the 3-sigma standard deviation for "
+                            "the vendor category."
+                        ),
+                        "severity": "critical",
+                    },
+                    {
+                        "key": "timing",
+                        "title": "Behavioural Timing",
+                        "detail": (
+                            "Request originated at 03:14 EST, outside normal operating hours for "
+                            "the initiating department."
+                        ),
+                        "severity": "high",
+                    },
+                ],
+                "actionRequired": (
+                    "A human operator with Level 2 clearance must review the vendor history and "
+                    "confirm the legitimacy of this off-hours, high-value request."
+                ),
+                "trustBefore": 94,
+                "confidence": 98,
+                "riskVector": {"financial": 90, "fraud": 85, "operational": 35, "regulatory": 20},
+                "merchant": "TechSolutions Inc",
+                "requestedAtLocal": "03:14 EST",
+                "trace": [
+                    {"key": "request", "label": "Ingestion", "status": "done"},
+                    {"key": "policy", "label": "Validation", "status": "done"},
+                    {"key": "trust", "label": "Model Eval", "status": "done"},
+                    {
+                        "key": "simulation",
+                        "label": "Risk Assessment",
+                        "status": "failed",
+                        "detail": "Block triggered",
+                    },
+                    {"key": "ledger", "label": "Gov Ledger", "status": "done"},
+                ],
+            },
+            policy_checks=[
+                PolicyCheck(
+                    policy_id="pol-04",
+                    policy_name="Entertainment Spend Limit",
+                    passed=False,
+                    detail="$12,450 exceeds $2,000 cap",
+                ),
+                PolicyCheck(
+                    policy_id="pol-14",
+                    policy_name="Vendor Transaction Variance",
+                    passed=False,
+                    detail="5.9× the vendor's historical average",
+                ),
+                PolicyCheck(
+                    policy_id="pol-15",
+                    policy_name="Operating-Hours Window",
+                    passed=False,
+                    detail="Originated 03:14 EST",
+                ),
+                PolicyCheck(policy_id="pol-06", policy_name="Sanctions Screening", passed=True),
+            ],
+        ),
+        Decision(
+            id="TRX-992A",
+            agent_id="agt-travel-01",
+            action="Book flight LHR → JFK, business class",
+            amount_usd=Decimal("4820.00"),
+            outcome=DecisionOutcome.APPROVED,
+            trust_score=94,
+            risk_score=12,
+            decided_at=_dt("2026-08-19T14:52:10Z"),
+            latency_ms=284,
+            rationale=(
+                "Approved. The agent's trust score (94) exceeds the 85 threshold for travel "
+                "bookings above $2,500. All applicable policies passed, and simulation projected "
+                "a 96% probability of a compliant, low-impact outcome."
+            ),
+            policy_checks=[
+                PolicyCheck(
+                    policy_id="pol-01",
+                    policy_name="Travel Spend Ceiling",
+                    passed=True,
+                    detail="$4,820 under $6,000 cap",
+                ),
+                PolicyCheck(policy_id="pol-02", policy_name="Preferred Carrier", passed=True),
+                PolicyCheck(
+                    policy_id="pol-03",
+                    policy_name="Advance Booking Window",
+                    passed=True,
+                    detail="21 days ahead",
+                ),
+                PolicyCheck(policy_id="pol-06", policy_name="Sanctions Screening", passed=True),
+            ],
+        ),
+        Decision(
+            id="TRX-9917",
+            agent_id="agt-expense-02",
+            action="Approve reimbursement — client dinner, 14 attendees",
+            amount_usd=Decimal("3180.00"),
+            outcome=DecisionOutcome.ESCALATED,
+            trust_score=72,
+            risk_score=61,
+            decided_at=_dt("2026-08-19T14:49:38Z"),
+            latency_ms=412,
+            rationale=(
+                "Escalated to human review. The agent's trust score fell to 72 after six policy "
+                "exceptions in the last 24 hours — below the 80 threshold required for autonomous "
+                "approval at this amount."
+            ),
+            policy_checks=[
+                PolicyCheck(
+                    policy_id="pol-04",
+                    policy_name="Entertainment Spend Limit",
+                    passed=False,
+                    detail="$3,180 exceeds $2,000 cap",
+                ),
+                PolicyCheck(policy_id="pol-05", policy_name="Receipt Completeness", passed=True),
+                PolicyCheck(policy_id="pol-06", policy_name="Sanctions Screening", passed=True),
+            ],
+        ),
+        Decision(
+            id="TRX-9902",
+            agent_id="agt-dispute-03",
+            action="Issue goodwill credit — disputed charge",
+            amount_usd=Decimal("240.00"),
+            outcome=DecisionOutcome.APPROVED,
+            trust_score=87,
+            risk_score=24,
+            decided_at=_dt("2026-08-19T14:46:02Z"),
+            latency_ms=198,
+            rationale=(
+                "Approved. Credit amount is well within the goodwill ceiling and the card member "
+                "has no repeat-claim history."
+            ),
+            policy_checks=[
+                PolicyCheck(
+                    policy_id="pol-07",
+                    policy_name="Goodwill Credit Ceiling",
+                    passed=True,
+                    detail="$240 under $500 cap",
+                ),
+                PolicyCheck(policy_id="pol-08", policy_name="Repeat Claimant Check", passed=True),
+            ],
+        ),
+        Decision(
+            id="TRX-9884",
+            agent_id="agt-payment-05",
+            action="Route settlement batch — EU corridor",
+            amount_usd=Decimal("1284000.00"),
+            outcome=DecisionOutcome.BLOCKED,
+            trust_score=89,
+            risk_score=88,
+            decided_at=_dt("2026-08-19T14:38:19Z"),
+            latency_ms=631,
+            rationale=(
+                "Blocked before execution. Simulation projected a 71% probability of "
+                "breaching the intraday liquidity buffer. Recommended action: split into "
+                "three batches under $500K."
+            ),
+            investigation={
+                "summary": (
+                    "A $1.28M single-batch EU settlement was blocked because it exceeds the "
+                    "cross-border cap and would drive the intraday liquidity buffer to 3.2%."
+                ),
+                "criticalFactors": [
+                    {
+                        "key": "cap",
+                        "title": "Cross-Border Settlement Cap",
+                        "detail": (
+                            "$1.28M exceeds the $1M hard cap for a single cross-border batch."
+                        ),
+                        "severity": "critical",
+                    },
+                    {
+                        "key": "liquidity",
+                        "title": "Liquidity Buffer Erosion",
+                        "detail": "Projected buffer of 3.2% falls below the 5% regulatory floor.",
+                        "severity": "high",
+                    },
+                ],
+                "actionRequired": "Split the batch into three transfers under $500K and re-submit.",
+                "trustBefore": 89,
+                "confidence": 97,
+                "riskVector": {"financial": 92, "fraud": 15, "operational": 61, "regulatory": 78},
+                "trace": [
+                    {"key": "request", "label": "Ingestion", "status": "done"},
+                    {
+                        "key": "policy",
+                        "label": "Validation",
+                        "status": "failed",
+                        "detail": "2 caps breached",
+                    },
+                    {"key": "trust", "label": "Model Eval", "status": "done"},
+                    {
+                        "key": "simulation",
+                        "label": "Risk Assessment",
+                        "status": "failed",
+                        "detail": "Block triggered",
+                    },
+                    {"key": "ledger", "label": "Gov Ledger", "status": "done"},
+                ],
+            },
+            policy_checks=[
+                PolicyCheck(
+                    policy_id="pol-09",
+                    policy_name="Cross-Border Settlement Cap",
+                    passed=False,
+                    detail="$1.28M exceeds $1M single-batch cap",
+                ),
+                PolicyCheck(policy_id="pol-06", policy_name="Sanctions Screening", passed=True),
+                PolicyCheck(
+                    policy_id="pol-10",
+                    policy_name="Liquidity Buffer",
+                    passed=False,
+                    detail="Buffer would fall to 3.2%",
+                ),
+            ],
+        ),
+        Decision(
+            id="TRX-9871",
+            agent_id="agt-fraud-04",
+            action="Freeze card — suspected account takeover",
+            amount_usd=None,
+            outcome=DecisionOutcome.APPROVED,
+            trust_score=97,
+            risk_score=8,
+            decided_at=_dt("2026-08-19T14:31:47Z"),
+            latency_ms=94,
+            rationale=(
+                "Approved. Highest-trust agent in the estate (97) acting within its designated "
+                "authority. Device fingerprint and geo-velocity signals both indicate account "
+                "takeover with high confidence."
+            ),
+            policy_checks=[
+                PolicyCheck(policy_id="pol-11", policy_name="Freeze Authorization", passed=True),
+                PolicyCheck(
+                    policy_id="pol-12", policy_name="Card Member Notification", passed=True
+                ),
+            ],
+        ),
+    ]
+
+
+def build_simulations() -> list[SimulationRun]:
+    return [
+        SimulationRun(
+            id="sim-4472",
+            decision_id="EXP-8892-BL",
+            scenario="Auto-approve $12,450 reimbursement to TechSolutions Inc at 03:14 EST",
+            agent_name="Expense Approval Agent",
+            amount_usd=Decimal("12450.00"),
+            trust_score=71,
+            confidence=99.2,
+            recommendation=DecisionOutcome.ESCALATED,
+            ran_at=_dt("2026-08-19T07:14:22Z"),
+            duration_ms=214,
+            request=[
+                {"label": "Agent", "value": "Expense Approval Agent"},
+                {"label": "Department", "value": "Finance Operations"},
+                {"label": "Action", "value": "Approve Reimbursement"},
+                {"label": "Amount", "value": "$12,450.00"},
+                {"label": "Merchant", "value": "TechSolutions Inc"},
+                {"label": "Time", "value": "03:14 EST"},
+                {"label": "Current Trust", "value": "71 / 100"},
+                {"label": "Policy Active", "value": "v2.4.1"},
+            ],
+            outcomes=[
+                SimulationOutcome(
+                    label="Approve",
+                    probability=0.18,
+                    financial_impact_usd=Decimal("-12450.00"),
+                    risk_score=84,
+                    compliant=False,
+                    customer_experience="High",
+                    compliance_risk="Medium",
+                ),
+                SimulationOutcome(
+                    label="Human Review",
+                    probability=0.64,
+                    financial_impact_usd=Decimal("-12450.00"),
+                    risk_score=22,
+                    compliant=True,
+                    customer_experience="Good",
+                    compliance_risk="Safe",
+                    recommended=True,
+                ),
+                SimulationOutcome(
+                    label="Block",
+                    probability=0.18,
+                    financial_impact_usd=Decimal("0.00"),
+                    risk_score=31,
+                    compliant=True,
+                    customer_experience="Poor",
+                    compliance_risk="Safe",
+                ),
+            ],
+        ),
+        SimulationRun(
+            id="sim-4471",
+            decision_id="TRX-9884",
+            scenario="Route $1.28M EU settlement batch as a single transfer",
+            agent_name="Payment Orchestration Agent",
+            amount_usd=Decimal("1284000.00"),
+            trust_score=89,
+            confidence=97.4,
+            recommendation=DecisionOutcome.BLOCKED,
+            ran_at=_dt("2026-08-19T14:38:19Z"),
+            duration_ms=631,
+            request=[
+                {"label": "Agent", "value": "Payment Orchestration Agent"},
+                {"label": "Department", "value": "Payments Platform"},
+                {"label": "Action", "value": "Route Settlement Batch"},
+                {"label": "Amount", "value": "$1,284,000.00"},
+                {"label": "Corridor", "value": "EU"},
+                {"label": "Current Trust", "value": "89 / 100"},
+            ],
+            outcomes=[
+                SimulationOutcome(
+                    label="Settles cleanly",
+                    probability=0.29,
+                    financial_impact_usd=Decimal("0.00"),
+                    risk_score=22,
+                    compliant=True,
+                    customer_experience="Good",
+                    compliance_risk="Safe",
+                ),
+                SimulationOutcome(
+                    label="Breaches liquidity buffer",
+                    probability=0.71,
+                    financial_impact_usd=Decimal("-184000.00"),
+                    risk_score=88,
+                    compliant=False,
+                    customer_experience="Poor",
+                    compliance_risk="High",
+                ),
+                SimulationOutcome(
+                    label="Split into three batches",
+                    probability=0.92,
+                    financial_impact_usd=Decimal("-2400.00"),
+                    risk_score=18,
+                    compliant=True,
+                    customer_experience="Good",
+                    compliance_risk="Safe",
+                    recommended=True,
+                ),
+            ],
+        ),
+        SimulationRun(
+            id="sim-4470",
+            decision_id="TRX-992A",
+            scenario="Book business-class LHR to JFK at $4,820",
+            agent_name="Travel Booking Agent",
+            amount_usd=Decimal("4820.00"),
+            trust_score=94,
+            confidence=99.6,
+            recommendation=DecisionOutcome.APPROVED,
+            ran_at=_dt("2026-08-19T14:52:10Z"),
+            duration_ms=284,
+            request=[
+                {"label": "Agent", "value": "Travel Booking Agent"},
+                {"label": "Department", "value": "Corporate Services"},
+                {"label": "Action", "value": "Book Flight"},
+                {"label": "Amount", "value": "$4,820.00"},
+                {"label": "Route", "value": "LHR to JFK"},
+                {"label": "Current Trust", "value": "94 / 100"},
+            ],
+            outcomes=[
+                SimulationOutcome(
+                    label="Compliant booking",
+                    probability=0.96,
+                    financial_impact_usd=Decimal("-4820.00"),
+                    risk_score=12,
+                    compliant=True,
+                    customer_experience="High",
+                    compliance_risk="Safe",
+                    recommended=True,
+                ),
+                SimulationOutcome(
+                    label="Fare change breaches cap",
+                    probability=0.04,
+                    financial_impact_usd=Decimal("-6400.00"),
+                    risk_score=58,
+                    compliant=False,
+                    customer_experience="Good",
+                    compliance_risk="Medium",
+                ),
+            ],
+        ),
+    ]
+
+
+def build_activity() -> list[ActivityItem]:
+    rows = [
+        (
+            "a1",
+            "Travel Agent approved booking TRX-992A.",
+            "2026-08-19T14:52:10Z",
+            ActivityTone.SUCCESS,
+        ),
+        (
+            "a2",
+            "Expense Agent routed for human review.",
+            "2026-08-19T14:49:38Z",
+            ActivityTone.WARNING,
+        ),
+        (
+            "a3",
+            "Trust Score updated for Dispute Agent (91 → 87).",
+            "2026-08-19T14:46:02Z",
+            ActivityTone.INFO,
+        ),
+        (
+            "a4",
+            "Policy version v2.4.1 deployed to production.",
+            "2026-08-19T14:41:55Z",
+            ActivityTone.INFO,
+        ),
+        (
+            "a5",
+            "Simulation predicted compliance violation — blocked.",
+            "2026-08-19T14:38:19Z",
+            ActivityTone.DANGER,
+        ),
+        (
+            "a6",
+            "Governance Ledger synchronized (18,402 entries).",
+            "2026-08-19T14:35:44Z",
+            ActivityTone.INFO,
+        ),
+    ]
+    return [ActivityItem(id=i, message=m, at=_dt(t), tone=tone) for i, m, t, tone in rows]
+
+
+async def seed(reset: bool = False) -> None:
+    async with AsyncSessionLocal() as session:
+        if reset:
+            # Order matters: children before parents.
+            for model in (
+                SimulationOutcome,
+                SimulationRun,
+                PolicyCheck,
+                Decision,
+                TrustFactor,
+                Agent,
+                Policy,
+                ActivityItem,
+            ):
+                await session.execute(delete(model))
+            await session.commit()
+
+        session.add_all(build_agents())
+        session.add_all(build_policies())
+        await session.flush()  # agents must exist before decisions reference them
+
+        session.add_all(build_decisions())
+        await session.flush()  # decisions must exist before simulations reference them
+
+        session.add_all(build_simulations())
+        session.add_all(build_activity())
+
+        await session.commit()
+
+    print("Seeded: 6 agents, 7 policies, 6 decisions, 3 simulations, 6 activity items")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed the ATLAS database")
+    parser.add_argument("--reset", action="store_true", help="delete existing rows first")
+    args = parser.parse_args()
+
+    configure_event_loop()
+    asyncio.run(seed(reset=args.reset))
+
+
+if __name__ == "__main__":
+    main()

@@ -4,10 +4,12 @@ import { LifecycleBadge, trustColor } from "@/components/ui/lifecycle-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
-import { AGENTS } from "@/lib/mock-data";
+import { ApiError } from "@/components/ui/api-error";
+import { fetchAgents, tryFetch } from "@/lib/api";
 import { cn, formatTime } from "@/lib/utils";
 
 export const metadata = { title: "Agent Registry — ATLAS" };
+export const dynamic = "force-dynamic";
 
 const COLUMNS = [
   "Agent Identity",
@@ -18,7 +20,23 @@ const COLUMNS = [
   "Status",
 ];
 
-export default function AgentRegistryPage() {
+export default async function AgentRegistryPage() {
+  const result = await tryFetch(fetchAgents);
+
+  if (!result.ok) {
+    return (
+      <>
+        <PageHeader
+          title="Agent"
+          highlight="Registry"
+          description="Inventory of registered autonomous entities, each carrying a continuously evaluated trust state."
+        />
+        <ApiError error={result.error} />
+      </>
+    );
+  }
+
+  const AGENTS = result.data;
   const trusted = AGENTS.filter((a) => a.lifecycle === "trusted").length;
   const needsAttention = AGENTS.filter(
     (a) => a.lifecycle === "review" || a.lifecycle === "anomaly",

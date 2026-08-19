@@ -11,18 +11,17 @@ import {
   X,
 } from "lucide-react";
 
+import { ApiError as ApiErrorPanel } from "@/components/ui/api-error";
 import { trustColor } from "@/components/ui/lifecycle-badge";
 import { OutcomeBadge, riskColor } from "@/components/ui/outcome-badge";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Pipeline } from "@/components/ui/pipeline";
 import { StatusChip } from "@/components/ui/status-chip";
-import { DECISIONS, getDecision } from "@/lib/mock-data";
+import { ApiError, fetchDecision } from "@/lib/api";
 import type { RiskVector } from "@/lib/types";
 import { cn, formatTime, formatUsd } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return DECISIONS.map((d) => ({ decisionId: d.id }));
-}
+export const dynamic = "force-dynamic";
 
 const RISK_LABELS: { key: keyof RiskVector; label: string }[] = [
   { key: "financial", label: "Financial" },
@@ -44,8 +43,16 @@ export default async function DecisionInvestigationPage({
   params: Promise<{ decisionId: string }>;
 }) {
   const { decisionId } = await params;
-  const decision = getDecision(decisionId);
-  if (!decision) notFound();
+
+  let decision;
+  try {
+    decision = await fetchDecision(decisionId);
+  } catch (err) {
+    // A missing decision is a 404; anything else means the backend is unwell,
+    // which deserves a different message than "not found".
+    if (err instanceof ApiError && err.status === 404) notFound();
+    return <ApiErrorPanel error={err instanceof Error ? err.message : String(err)} />;
+  }
 
   const investigation = decision.investigation;
   const failedChecks = decision.policyChecks.filter((c) => !c.passed);
