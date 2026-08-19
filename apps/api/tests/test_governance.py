@@ -96,10 +96,22 @@ def test_dashboard_aggregates_from_stored_rows(client):
     assert dashboard["compositeTrust"]["score"] == expected_avg
 
 
-def test_dashboard_does_not_invent_a_forecast(client):
-    """`predicted` stays null until the Trust Engine exists — the trend samples
-    across different agents, so extrapolating it would be misleading."""
-    assert client.get("/api/v1/dashboard").json()["compositeTrust"]["predicted"] is None
+def test_dashboard_forecast_is_grounded_in_stored_history(client):
+    """The forecast is projected from the estate trend, which is the average
+    trust per evaluation round. It is null only when history is too short —
+    never an extrapolation of unrelated numbers."""
+    composite = client.get("/api/v1/dashboard").json()["compositeTrust"]
+    trend = composite["trend"]
+    predicted = composite["predicted"]
+
+    if len(trend) < 3:
+        assert predicted is None
+    else:
+        assert predicted is not None
+        # A projection one step beyond the series should stay in range and
+        # near it — not wander off to an implausible value.
+        assert 0 <= predicted <= 100
+        assert min(trend) - 15 <= predicted <= max(trend) + 15
 
 
 def test_live_pipeline_reflects_the_latest_decision(client):

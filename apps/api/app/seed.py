@@ -9,7 +9,7 @@ UI is directly comparable before and after the switch to live data.
 
 import argparse
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import delete
@@ -29,7 +29,9 @@ from app.models import (
     SimulationOutcome,
     SimulationRun,
     TrustFactor,
+    TrustSnapshot,
 )
+from app.services import trust_service
 
 
 def _dt(iso: str) -> datetime:
@@ -709,7 +711,66 @@ def build_activity() -> list[ActivityItem]:
     return [ActivityItem(id=i, message=m, at=_dt(t), tone=tone) for i, m, t, tone in rows]
 
 
+#: Historical rounds to backfill, and the spacing between them.
+HISTORY_ROUNDS = 8
+HISTORY_INTERVAL = timedelta(hours=6)
+
+#: Where each agent's trust started, HISTORY_ROUNDS ago. Chosen so the seeded
+#: story is coherent: the Expense agent visibly deteriorates, the Merchant
+#: Onboarding agent climbs, and the rest hold steady.
+HISTORY_ORIGIN = {
+    "agt-travel-01": 91,
+    "agt-expense-02": 94,
+    "agt-dispute-03": 92,
+    "agt-fraud-04": 96,
+    "agt-payment-05": 86,
+    "agt-onboard-06": 44,
+}
+
+
+def build_trust_history(agents: list[Agent], *, now: datetime) -> list[TrustSnapshot]:
+    """Backfill synthetic trust history for the demo dataset.
+
+    This is fabricated *seed* data, which is the point of a seed script — it
+    gives drift detection and forecasting something to work on out of the box.
+    Nothing at runtime invents history: the API only ever reads what is stored.
+
+    The walk is deterministic (linear interpolation plus a fixed wobble) so
+    repeated seeding produces identical history.
+    """
+    snapshots: list[TrustSnapshot] = []
+
+    for agent in agents:
+        origin = HISTORY_ORIGIN.get(agent.id, agent.trust_score)
+        target = agent.trust_score
+        # Rounds are written oldest → newest, ending one interval before now so
+        # the live recompute that follows becomes the most recent point.
+        for step in range(HISTORY_ROUNDS):
+            progress = step / (HISTORY_ROUNDS - 1)
+            value = origin + (target - origin) * progress
+            # Small deterministic wobble so the series is not a straight line.
+            wobble = (1 if step % 2 else -1) * (step % 3) * 0.6
+            score = int(round(max(0.0, min(100.0, value + wobble))))
+
+            captured = now - HISTORY_INTERVAL * (HISTORY_ROUNDS - step)
+            snapshots.append(
+                TrustSnapshot(
+                    agent_id=agent.id,
+                    score=score,
+                    base_score=float(score),
+                    anomaly_penalty=0.0,
+                    factors=[],
+                    reason="seed",
+                    captured_at=captured,
+                )
+            )
+
+    return snapshots
+
+
 async def seed(reset: bool = False) -> None:
+    now = datetime.now(UTC)
+
     async with AsyncSessionLocal() as session:
         if reset:
             # Order matters: children before parents.
@@ -718,6 +779,7 @@ async def seed(reset: bool = False) -> None:
                 SimulationRun,
                 PolicyCheck,
                 Decision,
+                TrustSnapshot,
                 TrustFactor,
                 Agent,
                 Policy,
@@ -726,7 +788,8 @@ async def seed(reset: bool = False) -> None:
                 await session.execute(delete(model))
             await session.commit()
 
-        session.add_all(build_agents())
+        agents = build_agents()
+        session.add_all(agents)
         session.add_all(build_policies())
         await session.flush()  # agents must exist before decisions reference them
 
@@ -735,10 +798,21 @@ async def seed(reset: bool = False) -> None:
 
         session.add_all(build_simulations())
         session.add_all(build_activity())
+        session.add_all(build_trust_history(agents, now=now))
 
         await session.commit()
 
-    print("Seeded: 6 agents, 7 policies, 6 decisions, 3 simulations, 6 activity items")
+        # The authoritative current score is whatever the Trust Engine computes
+        # from the seeded factors and decisions — not the hand-written value.
+        evaluated = await trust_service.recompute_all(session, reason="seed-recompute", now=now)
+
+    print(
+        "Seeded: 6 agents, 7 policies, 6 decisions, 3 simulations, 6 activity items, "
+        f"{len(agents) * HISTORY_ROUNDS} trust snapshots"
+    )
+    for agent, evaluation in evaluated:
+        drift = " (drift)" if evaluation.drift.detected else ""
+        print(f"  {agent.id:<18} {evaluation.score:>3}  {evaluation.lifecycle.value}{drift}")
 
 
 def main() -> None:

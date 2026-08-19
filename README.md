@@ -139,6 +139,34 @@ no mapping layer.
 | `GET /api/v1/policies` | Policy ledger |
 | `GET /api/v1/simulations` · `/{id}` | Simulation runs with predicted outcomes |
 | `GET /api/v1/activity` | Governance activity feed |
+| `GET /api/v1/trust/overview` | Estate trust, band distribution, drift watchlist |
+| `GET /api/v1/trust/agents/{id}` | Score breakdown, history, drift, forecast, explanation |
+| `POST /api/v1/trust/recompute` | Re-evaluate every agent and snapshot the result |
+
+## Trust Engine
+
+An agent's score is computed, never stored as a given:
+
+```
+score = weighted mean of trust factors − anomaly penalty
+```
+
+- **Factors** are normalised by weight, so adding a factor does not silently
+  rescale every agent.
+- **Anomaly penalty** deducts points for blocked and escalated decisions inside
+  a 7-day window, capped so one bad week cannot erase a long record.
+- **Drift** compares an agent against *its own* baseline. Comparing across
+  agents would only measure that they are different agents.
+- **Lifecycle** follows from the evaluation: a steep decline means `anomaly`
+  even when the absolute score still looks respectable, and an agent climbing
+  out of trouble passes through `recovery` before it is trusted again.
+- **Forecast** is a least-squares projection over that agent's own snapshots,
+  and is `null` below three samples rather than a guess.
+
+Every evaluation returns an `explanation` — the arithmetic in plain language.
+
+`trust_snapshots` is what makes any of this possible: without stored history
+there is no baseline, no drift, and no honest forecast.
 
 ### Data model notes
 
@@ -163,7 +191,7 @@ no mapping layer.
 | 0 | Foundation — monorepo, design tokens, health check wired end to end | ✅ |
 | 1 | Frontend shell — Stitch screens as real React routes on typed mock data | ✅ |
 | 2 | Data model & API — core entities, migrations, live console | ✅ |
-| 3 | Trust Engine — dynamic trust scoring | |
+| 3 | Trust Engine — scoring, history, drift, lifecycle, forecasting | ✅ |
 | 4 | Policy Brain — policy authoring + evaluation | |
 | 5 | Simulation Engine — pre-execution outcome prediction | |
 | 6 | Decision pipeline & governance ledger | |

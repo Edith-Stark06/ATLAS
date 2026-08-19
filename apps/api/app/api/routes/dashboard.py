@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import ActivityItem, Agent, Decision, Policy, TrustFactor
+from app.models import ActivityItem, Agent, Decision, Policy, TrustFactor, TrustSnapshot
 from app.models.enums import DecisionOutcome
 from app.schemas.governance import (
     ActivityItemRead,
@@ -16,6 +16,7 @@ from app.schemas.governance import (
     PipelineStage,
     TrustFactorRead,
 )
+from app.services import trust_engine
 
 router = APIRouter()
 
@@ -175,21 +176,21 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)) -> DashboardRead:
         for key, rows in grouped.items()
     ]
 
-    # Trust score recorded against each recent decision, oldest → newest. This is
-    # real operational data, but it samples across agents rather than tracking one
-    # agent over time — a proper trust history lands with the Trust Engine.
+    # Estate trust over time. Every agent is snapshotted with a shared timestamp
+    # per evaluation round, so averaging by capture time gives a genuine
+    # estate-level series rather than a mix of unrelated agents.
     trend_rows = (
-        (
-            await db.execute(
-                select(Decision.trust_score)
-                .order_by(Decision.decided_at.desc())
-                .limit(TREND_SAMPLES)
+        await db.execute(
+            select(
+                TrustSnapshot.captured_at,
+                func.avg(TrustSnapshot.score).label("avg_score"),
             )
+            .group_by(TrustSnapshot.captured_at)
+            .order_by(TrustSnapshot.captured_at.desc())
+            .limit(TREND_SAMPLES)
         )
-        .scalars()
-        .all()
-    )
-    trend = list(reversed([int(t) for t in trend_rows]))
+    ).all()
+    trend = [int(round(float(row.avg_score))) for row in reversed(trend_rows)]
 
     activity_rows = (
         (await db.execute(select(ActivityItem).order_by(ActivityItem.at.desc()).limit(8)))
@@ -201,7 +202,10 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)) -> DashboardRead:
         metrics=metrics,
         composite_trust=CompositeTrust(
             score=round(avg_trust),
-            predicted=None,
+            # Now a real projection: `trend` is the estate average measured
+            # repeatedly over time, so a slope through it means something.
+            # Still None until there are enough evaluation rounds.
+            predicted=trust_engine.forecast_series([float(t) for t in trend]),
             factors=factors,
             trend=trend,
         ),

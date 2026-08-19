@@ -4,7 +4,10 @@ import type {
   DashboardData,
   Decision,
   Policy,
+  RecomputeResponse,
   SimulationRun,
+  TrustEvaluation,
+  TrustOverview,
 } from "@/lib/types";
 
 export const API_BASE_URL =
@@ -93,3 +96,19 @@ export const fetchDecision = (id: string) =>
 export const fetchPolicies = () => apiGet<Policy[]>("/policies");
 export const fetchSimulations = () => apiGet<SimulationRun[]>("/simulations");
 export const fetchActivity = () => apiGet<ActivityItem[]>("/activity");
+export const fetchTrustOverview = () => apiGet<TrustOverview>("/trust/overview");
+export const fetchAgentTrust = (id: string) =>
+  apiGet<TrustEvaluation>(`/trust/agents/${encodeURIComponent(id)}`);
+
+/** Triggers a fresh evaluation of every agent and records new snapshots. */
+export async function recomputeTrust(): Promise<RecomputeResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/trust/recompute`, {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS * 4),
+  });
+  if (!res.ok) {
+    throw new ApiError(`Recompute failed with ${res.status}`, res.status);
+  }
+  return (await res.json()) as RecomputeResponse;
+}

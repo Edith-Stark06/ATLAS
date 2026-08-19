@@ -9,6 +9,7 @@ from app.models.enums import LifecycleState
 
 if TYPE_CHECKING:
     from app.models.decision import Decision
+    from app.models.trust import TrustSnapshot
 
 
 class Agent(Base):
@@ -55,6 +56,11 @@ class Agent(Base):
         lazy="selectin",
     )
     decisions: Mapped[list["Decision"]] = relationship(back_populates="agent")
+    snapshots: Mapped[list["TrustSnapshot"]] = relationship(
+        back_populates="agent",
+        cascade="all, delete-orphan",
+        order_by="TrustSnapshot.captured_at",
+    )
 
 
 class TrustFactor(Base):

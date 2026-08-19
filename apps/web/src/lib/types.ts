@@ -208,6 +208,69 @@ export interface DashboardData {
   activity: ActivityItem[];
 }
 
+/** How far an agent has moved against its own historical baseline. */
+export interface Drift {
+  detected: boolean;
+  /** Current score minus baseline, in points. Negative means declining. */
+  delta: number;
+  baseline: number | null;
+  samples: number;
+}
+
+export interface TrustSnapshot {
+  score: number;
+  baseScore: number;
+  anomalyPenalty: number;
+  reason: string;
+  capturedAt: string;
+}
+
+export interface TrustEvaluation {
+  agentId: string;
+  agentName: string;
+  score: number;
+  /** Weighted factor mean, before penalties. */
+  baseScore: number;
+  anomalyPenalty: number;
+  lifecycle: LifecycleState;
+  factors: TrustFactor[];
+  drift: Drift;
+  /** Null when there is too little history to project honestly. */
+  forecast: number | null;
+  /** Step-by-step account of how the score was reached. */
+  explanation: string[];
+  history: TrustSnapshot[];
+}
+
+export interface TrustBandCount {
+  band: string;
+  label: string;
+  count: number;
+}
+
+export interface TrustOverview {
+  averageScore: number;
+  agentsEvaluated: number;
+  drifting: number;
+  bands: TrustBandCount[];
+  /** Ordered by drift, worst first. */
+  watchlist: TrustEvaluation[];
+}
+
+export interface RecomputeResult {
+  agentId: string;
+  agentName: string;
+  previousScore: number;
+  score: number;
+  lifecycle: LifecycleState;
+  driftDetected: boolean;
+}
+
+export interface RecomputeResponse {
+  evaluated: number;
+  results: RecomputeResult[];
+}
+
 /** Maps a 0–100 score onto its trust band. */
 export function trustBand(score: number): TrustBand {
   if (score >= 90) return "trusted";

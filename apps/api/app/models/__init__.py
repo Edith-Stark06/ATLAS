@@ -12,6 +12,7 @@ from app.models.decision import Decision, PolicyCheck
 from app.models.enums import ActivityTone, DecisionOutcome, LifecycleState, Severity
 from app.models.policy import Policy
 from app.models.simulation import SimulationOutcome, SimulationRun
+from app.models.trust import TrustSnapshot
 
 __all__ = [
     "ActivityItem",
@@ -26,4 +27,5 @@ __all__ = [
     "SimulationOutcome",
     "SimulationRun",
     "TrustFactor",
+    "TrustSnapshot",
 ]
