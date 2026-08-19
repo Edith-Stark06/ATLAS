@@ -27,7 +27,7 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Control Center", href: "/", icon: LayoutDashboard, built: true },
-  { label: "Trust Engine", href: "/trust-engine", icon: ShieldCheck, built: false },
+  { label: "Trust Engine", href: "/trust-engine", icon: ShieldCheck, built: true },
   { label: "AI Agents", href: "/agents", icon: Bot, built: true },
   { label: "Policy Brain", href: "/policies", icon: Scale, built: true },
   { label: "Decision Intelligence", href: "/decisions", icon: Workflow, built: true },
