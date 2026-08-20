@@ -65,6 +65,14 @@ class TrustEvaluation:
     drift: DriftAssessment
     #: Human-readable account of how the score was reached.
     explanation: list[str]
+    #: "ml" when a trained model produced `score`, "heuristic" when it fell
+    #: back to the weighted-mean-minus-penalty formula (no model artifact
+    #: present, e.g. a fresh clone before `python -m app.ml.train` has run).
+    score_source: str = "heuristic"
+    #: Per-factor contribution to `score` in score units, from the trained
+    #: model's SHAP values — None when score_source is "heuristic", since
+    #: the heuristic's own weighted terms already serve that purpose.
+    ml_attribution: dict[str, float] | None = None
 
 
 def compute_base_score(factors) -> float:
@@ -201,11 +209,29 @@ def evaluate(
     snapshots: list[TrustSnapshot],
     *,
     now: datetime | None = None,
+    ml_score: float | None = None,
+    ml_attribution: dict[str, float] | None = None,
 ) -> TrustEvaluation:
-    """Run a full trust evaluation for one agent."""
+    """Run a full trust evaluation for one agent.
+
+    `ml_score`/`ml_attribution` come from a trained model (see
+    app.ml.models.TrustModel), loaded and computed by the caller — this
+    function has no knowledge of sklearn/joblib and stays testable with
+    plain objects. When ml_score is None (no trained artifact on disk), the
+    heuristic weighted-mean-minus-penalty formula is used instead, and is
+    always computed regardless, purely as a documented point of comparison
+    in the explanation.
+    """
     base = compute_base_score(agent.factors)
     penalty, blocked, escalated = compute_anomaly_penalty(decisions, now=now)
-    score = int(round(max(0.0, min(100.0, base - penalty))))
+    heuristic_score = int(round(max(0.0, min(100.0, base - penalty))))
+
+    if ml_score is not None:
+        score = int(round(max(0.0, min(100.0, ml_score))))
+        score_source = "ml"
+    else:
+        score = heuristic_score
+        score_source = "heuristic"
 
     drift = assess_drift(score, snapshots)
     lifecycle = next_lifecycle(
@@ -215,9 +241,19 @@ def evaluate(
         decision_volume=agent.decisions_today,
     )
 
-    explanation = [
-        f"Weighted factor mean: {base:.1f}",
-    ]
+    explanation = []
+    if ml_score is not None:
+        explanation.append(
+            f"ML score: {score} (trained logistic regression, calibrated probability of "
+            f"compliant behaviour)"
+        )
+        explanation.append(
+            f"Heuristic score for comparison: {heuristic_score} "
+            f"(weighted factor mean {base:.1f} − penalty {penalty:.1f})"
+        )
+    else:
+        explanation.append(f"Weighted factor mean: {base:.1f}")
+    penalty_prefix = "Heuristic penalty" if ml_score is not None else "Anomaly penalty"
     if penalty:
         parts = []
         if blocked:
@@ -225,7 +261,7 @@ def evaluate(
         if escalated:
             parts.append(f"{escalated} escalated")
         explanation.append(
-            f"Anomaly penalty −{penalty:.1f} from {' and '.join(parts)} "
+            f"{penalty_prefix} −{penalty:.1f} from {' and '.join(parts)} "
             f"in the last {ANOMALY_WINDOW.days} days"
         )
     else:
@@ -254,4 +290,6 @@ def evaluate(
         lifecycle=lifecycle,
         drift=drift,
         explanation=explanation,
+        score_source=score_source,
+        ml_attribution=ml_attribution,
     )

@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, BrainCircuit, RefreshCw, ShieldCheck, Users } from "lucide-react";
 
 import { runRecompute } from "@/app/(console)/trust-engine/actions";
 import { ApiError } from "@/components/ui/api-error";
@@ -8,9 +8,25 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Sparkline } from "@/components/ui/sparkline";
 import { StatCard } from "@/components/ui/stat-card";
-import { fetchTrustOverview, tryFetch } from "@/lib/api";
+import { StatusChip } from "@/components/ui/status-chip";
+import { fetchModelInfo, fetchTrustOverview, tryFetch } from "@/lib/api";
 import type { TrustEvaluation } from "@/lib/types";
 import { cn, formatTime } from "@/lib/utils";
+
+interface TrustModelMetrics {
+  trust_model: { baseline_auc: number; learned_auc: number; auc_improvement_pct: number };
+  anomaly_detection: {
+    baseline: { precision: number; recall: number; f1: number };
+    learned: { precision: number; recall: number; f1: number };
+  };
+  simulation_model: {
+    baseline_accuracy: number;
+    learned_accuracy: number;
+    baseline_log_loss: number;
+    learned_log_loss: number;
+  };
+  dataset: { n_agents: number; n_steps: number };
+}
 
 export const metadata = { title: "Trust Engine — ATLAS" };
 export const dynamic = "force-dynamic";
@@ -23,7 +39,25 @@ const BAND_TONE: Record<string, string> = {
 };
 
 function ScoreBreakdown({ evaluation }: { evaluation: TrustEvaluation }) {
-  const { baseScore, anomalyPenalty, score } = evaluation;
+  const { baseScore, anomalyPenalty, score, scoreSource, mlAttribution } = evaluation;
+
+  if (scoreSource === "ml" && mlAttribution) {
+    const top = Object.entries(mlAttribution)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 2);
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-status-label">
+        <span className={cn("text-body-sm", trustColor(score))}>{score}</span>
+        <span className="text-outline">·</span>
+        {top.map(([key, value]) => (
+          <span key={key} className={value >= 0 ? "text-tertiary" : "text-error"}>
+            {key} {value >= 0 ? "+" : ""}
+            {value.toFixed(1)}
+          </span>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-status-label">
@@ -80,13 +114,24 @@ function AgentTrustRow({ evaluation }: { evaluation: TrustEvaluation }) {
       </div>
 
       <DriftBadge drift={evaluation.drift} />
+      {evaluation.mlAnomaly?.detected && (
+        <StatusChip tone="warning" className="gap-1">
+          <BrainCircuit className="size-3" />
+          ML anomaly
+        </StatusChip>
+      )}
       <LifecycleBadge state={evaluation.lifecycle} />
     </li>
   );
 }
 
 export default async function TrustEnginePage() {
-  const result = await tryFetch(fetchTrustOverview);
+  const [result, modelInfoResult] = await Promise.all([
+    tryFetch(fetchTrustOverview),
+    tryFetch(fetchModelInfo),
+  ]);
+  const modelInfo = modelInfoResult.ok ? modelInfoResult.data : null;
+  const metrics = modelInfo?.metrics as TrustModelMetrics | null | undefined;
 
   if (!result.ok) {
     return (
@@ -217,6 +262,70 @@ export default async function TrustEnginePage() {
               )}
             </Panel>
           )}
+
+          <Panel>
+            <PanelHeader
+              title="Model vs. Heuristic"
+              icon={BrainCircuit}
+              description={
+                metrics
+                  ? `Trained on ${metrics.dataset.n_agents} synthetic agents × ${metrics.dataset.n_steps} steps.`
+                  : undefined
+              }
+            />
+            {!metrics ? (
+              <p className="p-6 text-body-sm text-on-surface-variant">
+                No trained model on disk — scores are the Phase 3 heuristic.
+                Run <code className="text-primary">python -m app.ml.train</code> to
+                enable ML scoring.
+              </p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/5">
+                <div className="flex items-center justify-between px-6 py-3">
+                  <span className="text-body-sm text-on-surface-variant">
+                    Trust scoring (AUC)
+                  </span>
+                  <span className="font-mono text-body-sm">
+                    <span className="text-outline">
+                      {metrics.trust_model.baseline_auc.toFixed(3)}
+                    </span>
+                    <span className="mx-1.5 text-outline">→</span>
+                    <span className="text-tertiary">
+                      {metrics.trust_model.learned_auc.toFixed(3)}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-6 py-3">
+                  <span className="text-body-sm text-on-surface-variant">
+                    Anomaly detection (F1)
+                  </span>
+                  <span className="font-mono text-body-sm">
+                    <span className="text-outline">
+                      {metrics.anomaly_detection.baseline.f1.toFixed(3)}
+                    </span>
+                    <span className="mx-1.5 text-outline">→</span>
+                    <span className="text-tertiary">
+                      {metrics.anomaly_detection.learned.f1.toFixed(3)}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-6 py-3">
+                  <span className="text-body-sm text-on-surface-variant">
+                    Simulation (log-loss, lower is better)
+                  </span>
+                  <span className="font-mono text-body-sm">
+                    <span className="text-outline">
+                      {metrics.simulation_model.baseline_log_loss.toFixed(3)}
+                    </span>
+                    <span className="mx-1.5 text-outline">→</span>
+                    <span className="text-tertiary">
+                      {metrics.simulation_model.learned_log_loss.toFixed(3)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
     </>

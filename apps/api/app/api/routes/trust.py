@@ -1,14 +1,22 @@
+import math
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.ml import models as ml_models
 from app.models import Agent
 from app.schemas.governance import TrustFactorRead
 from app.schemas.trust import (
     DriftRead,
+    MLAnomalyRead,
+    ModelInfoRead,
+    PredictedOutcome,
     RecomputeResponse,
     RecomputeResult,
+    SimulationPredictRequest,
+    SimulationPredictResponse,
     TrustBandCount,
     TrustEvaluationRead,
     TrustOverviewRead,
@@ -34,7 +42,7 @@ async def _read_evaluation(db: AsyncSession, agent_id: str) -> TrustEvaluationRe
     if loaded is None:
         return None
 
-    agent, evaluation, snapshots = loaded
+    agent, evaluation, snapshots, ml_anomaly = loaded
     return TrustEvaluationRead(
         agent_id=agent.id,
         agent_name=agent.name,
@@ -52,6 +60,13 @@ async def _read_evaluation(db: AsyncSession, agent_id: str) -> TrustEvaluationRe
         forecast=trust_engine.forecast(snapshots),
         explanation=evaluation.explanation,
         history=[TrustSnapshotRead.model_validate(s) for s in snapshots],
+        score_source=evaluation.score_source,
+        ml_attribution=evaluation.ml_attribution,
+        ml_anomaly=(
+            MLAnomalyRead(detected=ml_anomaly.detected, score=ml_anomaly.score)
+            if ml_anomaly is not None
+            else None
+        ),
     )
 
 
@@ -98,6 +113,48 @@ async def agent_trust(agent_id: str, db: AsyncSession = Depends(get_db)) -> Trus
     if evaluation is None:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
     return evaluation
+
+
+@router.get("/model-info", response_model=ModelInfoRead)
+async def model_info() -> ModelInfoRead:
+    """Provenance and evaluation results for the trained models — the
+    baseline-vs-learned comparison, not asserted, read back from what
+    `python -m app.ml.train` actually measured."""
+    metrics = ml_models.load_metrics()
+    if metrics is None:
+        return ModelInfoRead(available=False)
+    return ModelInfoRead(available=True, trained_at=metrics.get("trained_at"), metrics=metrics)
+
+
+@router.post("/simulate", response_model=SimulationPredictResponse)
+async def simulate(request: SimulationPredictRequest) -> SimulationPredictResponse:
+    """Score a hypothetical decision with the trained outcome classifier.
+
+    No persistence and no agent lookup — this is a what-if tool, distinct
+    from the historical SimulationRun rows attached to real decisions.
+    """
+    model = ml_models.load_simulation_model()
+    if model is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Simulation model not trained — run `python -m app.ml.train`.",
+        )
+
+    features = {
+        "risk_score": request.risk_score,
+        "log_amount": math.log1p(request.amount_usd),
+        "hour": request.hour,
+        "policy_pass_rate": request.policy_pass_rate,
+        "trust_proxy": request.trust_score,
+        "authority_level": request.authority_level,
+    }
+    predictions = model.predict_outcomes(features)
+    best = max(predictions, key=lambda p: p["probability"])
+
+    return SimulationPredictResponse(
+        outcomes=[PredictedOutcome(**p) for p in predictions],
+        recommendation=best["outcome"],
+    )
 
 
 @router.post("/recompute", response_model=RecomputeResponse)

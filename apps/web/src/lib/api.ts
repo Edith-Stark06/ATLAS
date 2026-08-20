@@ -3,8 +3,11 @@ import type {
   Agent,
   DashboardData,
   Decision,
+  ModelInfo,
   Policy,
   RecomputeResponse,
+  SimulationPredictRequest,
+  SimulationPredictResponse,
   SimulationRun,
   TrustEvaluation,
   TrustOverview,
@@ -111,4 +114,24 @@ export async function recomputeTrust(): Promise<RecomputeResponse> {
     throw new ApiError(`Recompute failed with ${res.status}`, res.status);
   }
   return (await res.json()) as RecomputeResponse;
+}
+
+export const fetchModelInfo = () => apiGet<ModelInfo>("/trust/model-info");
+
+/** Scores a hypothetical decision with the trained outcome classifier — no
+ * persistence, distinct from the historical SimulationRun records. */
+export async function simulatePredict(
+  request: SimulationPredictRequest,
+): Promise<SimulationPredictResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/trust/simulate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new ApiError(`Simulate failed with ${res.status}`, res.status);
+  }
+  return (await res.json()) as SimulationPredictResponse;
 }
