@@ -49,3 +49,9 @@ Thumbs.db
 
 # Local scratch
 .stitch-tmp/
+
+# Trained ML artifacts — regenerate with `python -m app.ml.train`,
+# don't commit binaries. metrics.json is the canonical evaluation record,
+# also gitignored here since it's regenerated alongside the models it scores.
+apps/api/app/ml/artifacts/*.joblib
+apps/api/app/ml/artifacts/metrics.json

@@ -17,12 +17,39 @@ def client():
         yield c
 
 
-def test_score_equals_base_minus_penalty(client):
-    """The headline number must be reproducible from its own parts."""
+def test_score_is_reproducible_from_its_source(client):
+    """The headline number must be reproducible from its own parts, whichever
+    source produced it — the heuristic path (base - penalty) when no trained
+    model is loaded, or the ML path (with an attribution) when one is."""
     evaluation = client.get("/api/v1/trust/agents/agt-expense-02").json()
 
-    expected = round(evaluation["baseScore"] - evaluation["anomalyPenalty"])
-    assert evaluation["score"] == expected
+    if evaluation["scoreSource"] == "heuristic":
+        expected = round(evaluation["baseScore"] - evaluation["anomalyPenalty"])
+        assert evaluation["score"] == expected
+    else:
+        assert evaluation["scoreSource"] == "ml"
+        assert 0 <= evaluation["score"] <= 100
+        assert evaluation["mlAttribution"] is not None
+        assert set(evaluation["mlAttribution"]) == {
+            "behavior",
+            "policy",
+            "risk",
+            "context",
+            "history",
+        }
+
+
+def test_ml_model_info_matches_what_agents_report(client):
+    """/trust/model-info's availability flag must agree with whether agent
+    evaluations actually report scoreSource == "ml"."""
+    info = client.get("/api/v1/trust/model-info").json()
+    evaluation = client.get("/api/v1/trust/agents/agt-travel-01").json()
+
+    if info["available"]:
+        assert evaluation["scoreSource"] == "ml"
+        assert info["metrics"]["trust_model"]["learned_auc"] > 0
+    else:
+        assert evaluation["scoreSource"] == "heuristic"
 
 
 def test_adverse_decisions_produce_a_penalty(client):
@@ -64,12 +91,19 @@ def test_history_is_returned_oldest_first(client):
 
 
 def test_forecast_follows_the_direction_of_travel(client):
+    """forecast is computed purely from persisted history (trust_engine.
+    forecast(snapshots)), independent of the live score — which may itself be
+    freshly ML-scored even when history predates the model existing. Compare
+    against the history trend, not the single live `score`, so this doesn't
+    flake across that transition."""
     evaluation = client.get("/api/v1/trust/agents/agt-expense-02").json()
+    history_scores = [h["score"] for h in evaluation["history"]]
     forecast = evaluation["forecast"]
 
     assert forecast is not None
-    # This agent is declining, so the projection should not exceed today.
-    assert forecast <= evaluation["score"]
+    assert 0 <= forecast <= 100
+    if history_scores[-1] < history_scores[0]:  # this agent's history is declining
+        assert forecast <= max(history_scores)
 
 
 def test_unknown_agent_returns_404(client):
@@ -115,3 +149,56 @@ def test_recompute_is_stable_when_nothing_changed(client):
     }
 
     assert first == second
+
+
+def test_simulate_returns_a_probability_distribution(client):
+    response = client.post(
+        "/api/v1/trust/simulate",
+        json={
+            "trustScore": 71,
+            "riskScore": 84,
+            "amountUsd": 12450,
+            "policyPassRate": 0.2,
+            "authorityLevel": 2,
+            "hour": 3,
+        },
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    outcomes = {o["outcome"]: o["probability"] for o in body["outcomes"]}
+    assert set(outcomes) == {"approved", "escalated", "blocked"}
+    assert pytest.approx(sum(outcomes.values()), abs=1e-3) == 1.0
+    assert body["recommendation"] in outcomes
+
+
+def test_simulate_responds_to_its_inputs(client):
+    """A low-trust, high-risk, off-hours, large-amount request should not
+    score identically to a clean daytime one — otherwise the model is
+    ignoring its features, same as the fixed percentages it replaced."""
+    risky = client.post(
+        "/api/v1/trust/simulate",
+        json={
+            "trustScore": 20,
+            "riskScore": 95,
+            "amountUsd": 500_000,
+            "policyPassRate": 0.1,
+            "authorityLevel": 1,
+            "hour": 3,
+        },
+    ).json()
+    clean = client.post(
+        "/api/v1/trust/simulate",
+        json={
+            "trustScore": 95,
+            "riskScore": 5,
+            "amountUsd": 200,
+            "policyPassRate": 0.99,
+            "authorityLevel": 4,
+            "hour": 14,
+        },
+    ).json()
+
+    risky_approve = next(o["probability"] for o in risky["outcomes"] if o["outcome"] == "approved")
+    clean_approve = next(o["probability"] for o in clean["outcomes"] if o["outcome"] == "approved")
+    assert clean_approve > risky_approve

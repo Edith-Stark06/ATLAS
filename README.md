@@ -69,11 +69,21 @@ cd apps/api && .venv/Scripts/python.exe -m app
 
 Use `python -m app` rather than invoking `uvicorn` directly — the entrypoint installs a Windows event-loop shim that psycopg3 requires (see `app/core/compat.py`).
 
-Apply migrations and load the reference dataset:
+Apply migrations:
 
 ```bash
 cd apps/api && .venv/Scripts/python.exe -m alembic upgrade head
 ```
+
+Train the ML models (optional — the API works without this, falling back to
+the Phase 3 heuristic; see [Trust Engine](#trust-engine)):
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m app.ml.train
+```
+
+Load the reference dataset — do this *after* training so the seeded history
+is scored by the trained model instead of the heuristic:
 
 ```bash
 cd apps/api && .venv/Scripts/python.exe -m app.seed --reset
@@ -142,17 +152,25 @@ no mapping layer.
 | `GET /api/v1/trust/overview` | Estate trust, band distribution, drift watchlist |
 | `GET /api/v1/trust/agents/{id}` | Score breakdown, history, drift, forecast, explanation |
 | `POST /api/v1/trust/recompute` | Re-evaluate every agent and snapshot the result |
+| `GET /api/v1/trust/model-info` | Trained model provenance and baseline-vs-learned metrics |
+| `POST /api/v1/trust/simulate` | Score a hypothetical decision with the trained outcome classifier |
 
 ## Trust Engine
 
-An agent's score is computed, never stored as a given:
+An agent's score is **computed**, never stored as a given. When a trained
+model is present (`apps/api/app/ml/artifacts/`), it is the primary source;
+otherwise the system falls back to a deterministic heuristic — the same
+0–100 scale either way, so nothing else in the pipeline needs to know which
+produced a given score.
 
 ```
-score = weighted mean of trust factors − anomaly penalty
+heuristic fallback: score = weighted mean of trust factors − anomaly penalty
+ml (primary):        score = 100 × P(next decision is compliant), from a
+                      logistic regression trained on labelled outcomes
 ```
 
-- **Factors** are normalised by weight, so adding a factor does not silently
-  rescale every agent.
+- **Factors** are normalised by weight in the heuristic path, so adding a
+  factor does not silently rescale every agent.
 - **Anomaly penalty** deducts points for blocked and escalated decisions inside
   a 7-day window, capped so one bad week cannot erase a long record.
 - **Drift** compares an agent against *its own* baseline. Comparing across
@@ -163,10 +181,39 @@ score = weighted mean of trust factors − anomaly penalty
 - **Forecast** is a least-squares projection over that agent's own snapshots,
   and is `null` below three samples rather than a guess.
 
-Every evaluation returns an `explanation` — the arithmetic in plain language.
+Every evaluation returns an `explanation` — the arithmetic in plain language,
+plus (when ML-scored) a SHAP-derived per-factor attribution.
 
 `trust_snapshots` is what makes any of this possible: without stored history
 there is no baseline, no drift, and no honest forecast.
+
+### ML Trust Engine (Phase 4)
+
+Three trained models, each replacing a Phase 3 heuristic, evaluated against
+it rather than assumed to be better:
+
+| Component | Replaces | Model | Result vs. heuristic |
+| --- | --- | --- | --- |
+| Trust scoring | Hand-set factor weights | Logistic regression | AUC 0.632 → 0.670 (+6.1%) |
+| Drift detection | Fixed threshold vs. population mean | Per-agent Isolation Forest | F1 0.263 → 0.335 (+27%) |
+| Outcome simulation | Fixed percentages for every decision | Gradient-boosted classifier | Log-loss 1.005 → 0.946 (−6%) |
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m app.ml.train
+```
+
+Trains on a synthetic dataset (no real decision history exists yet to train
+on) with disclosed, inspectable structure — see
+`apps/api/app/ml/dataset.py` and, for the full methodology and the
+patent-relevant technical-effect argument, **`docs/patent/
+technical-disclosure.md`**. Re-seeding after training
+(`python -m app.seed --reset`) backfills history *scored by the trained
+model*, so historical and live scores stay methodologically coherent — see
+§5.5 of the disclosure for why this matters.
+
+Artifacts are gitignored (`apps/api/app/ml/artifacts/`) — regenerate them
+locally rather than committing binaries; `metrics.json` there is the
+canonical source for the numbers in the table above.
 
 ### Data model notes
 
@@ -178,9 +225,11 @@ there is no baseline, no drift, and no honest forecast.
 - **`policy_checks.policy_name` is denormalised on purpose.** Policies are
   versioned and renamed; an audit record must show the name as it was at the
   time of the decision.
-- **`compositeTrust.predicted` is `null`.** The trend samples trust across
-  different agents, so extrapolating it would be misleading. Real forecasting
-  arrives with the Trust Engine in Phase 3.
+- **`compositeTrust.predicted`** is a genuine least-squares projection over
+  the estate's own trust-snapshot history (one point per evaluation round,
+  averaged across agents) — `null` below three rounds rather than a guess.
+  Phase 2 returned `null` unconditionally because that history didn't exist
+  yet; Phase 3 introduced `trust_snapshots`, which is what made this real.
 
 ---
 
@@ -192,7 +241,8 @@ there is no baseline, no drift, and no honest forecast.
 | 1 | Frontend shell — Stitch screens as real React routes on typed mock data | ✅ |
 | 2 | Data model & API — core entities, migrations, live console | ✅ |
 | 3 | Trust Engine — scoring, history, drift, lifecycle, forecasting | ✅ |
-| 4 | Policy Brain — policy authoring + evaluation | |
-| 5 | Simulation Engine — pre-execution outcome prediction | |
-| 6 | Decision pipeline & governance ledger | |
-| 7 | Auth, seed data, deployment | |
+| 4 | ML Trust Engine — trained models replacing every Phase 3 heuristic | ✅ |
+| 5 | Policy Brain — policy authoring + evaluation | |
+| 6 | Simulation Engine — pre-execution outcome prediction | |
+| 7 | Decision pipeline & governance ledger | |
+| 8 | Auth, seed data, deployment | |

@@ -225,6 +225,16 @@ export interface TrustSnapshot {
   capturedAt: string;
 }
 
+/** Isolation Forest result for one agent's own accumulated history. */
+export interface MLAnomaly {
+  detected: boolean;
+  /** decision_function output — more negative is more anomalous. Not a
+   * fixed 0-100 scale like Drift.delta. */
+  score: number;
+}
+
+export type ScoreSource = "ml" | "heuristic";
+
 export interface TrustEvaluation {
   agentId: string;
   agentName: string;
@@ -240,6 +250,38 @@ export interface TrustEvaluation {
   /** Step-by-step account of how the score was reached. */
   explanation: string[];
   history: TrustSnapshot[];
+  /** "ml" when a trained model produced `score`, "heuristic" otherwise. */
+  scoreSource: ScoreSource;
+  /** Per-factor SHAP contribution to `score`, in score units. Null when
+   * scoreSource is "heuristic". */
+  mlAttribution: Record<string, number> | null;
+  /** Null when no trained model is loaded, or too little history exists. */
+  mlAnomaly: MLAnomaly | null;
+}
+
+export interface SimulationPredictRequest {
+  trustScore: number;
+  riskScore: number;
+  amountUsd: number;
+  policyPassRate: number;
+  authorityLevel: number;
+  hour: number;
+}
+
+export interface PredictedOutcome {
+  outcome: DecisionOutcome;
+  probability: number;
+}
+
+export interface SimulationPredictResponse {
+  outcomes: PredictedOutcome[];
+  recommendation: DecisionOutcome;
+}
+
+export interface ModelInfo {
+  available: boolean;
+  trainedAt: string | null;
+  metrics: Record<string, unknown> | null;
 }
 
 export interface TrustBandCount {

@@ -16,6 +16,7 @@ from sqlalchemy import delete
 
 from app.core.compat import configure_event_loop
 from app.core.database import AsyncSessionLocal
+from app.ml import models as ml_models
 from app.models import (
     ActivityItem,
     ActivityTone,
@@ -728,12 +729,23 @@ HISTORY_ORIGIN = {
 }
 
 
-def build_trust_history(agents: list[Agent], *, now: datetime) -> list[TrustSnapshot]:
+def build_trust_history(
+    agents: list[Agent], *, now: datetime, trust_model=None
+) -> list[TrustSnapshot]:
     """Backfill synthetic trust history for the demo dataset.
 
     This is fabricated *seed* data, which is the point of a seed script — it
     gives drift detection and forecasting something to work on out of the box.
     Nothing at runtime invents history: the API only ever reads what is stored.
+
+    When a trained model is available (`trust_model`, from
+    app.ml.models.load_trust_model), history is scored *with it* — the whole
+    backfilled series is ML-native, not just the newest point. Without this,
+    seeding before training would leave old heuristic-scored history sitting
+    under a live ML-scored present, and every agent would show as sharply
+    "drifting" the moment a model is trained — an artifact of the transition,
+    not real behaviour. Falls back to interpolating the scalar score directly
+    when no model is on disk yet.
 
     The walk is deterministic (linear interpolation plus a fixed wobble) so
     repeated seeding produces identical history.
@@ -741,25 +753,57 @@ def build_trust_history(agents: list[Agent], *, now: datetime) -> list[TrustSnap
     snapshots: list[TrustSnapshot] = []
 
     for agent in agents:
-        origin = HISTORY_ORIGIN.get(agent.id, agent.trust_score)
-        target = agent.trust_score
+        origin_score = HISTORY_ORIGIN.get(agent.id, agent.trust_score)
+        current_factors = {f.key: f.score for f in agent.factors}
+        current_mean = sum(current_factors.values()) / len(current_factors)
+        # Scale every factor by the same ratio so the backfill's overall level
+        # matches HISTORY_ORIGIN while preserving each factor's relative shape.
+        ratio = origin_score / current_mean if current_mean else 1.0
+        origin_factors = {k: max(0.0, min(100.0, v * ratio)) for k, v in current_factors.items()}
+
         # Rounds are written oldest → newest, ending one interval before now so
         # the live recompute that follows becomes the most recent point.
         for step in range(HISTORY_ROUNDS):
             progress = step / (HISTORY_ROUNDS - 1)
-            value = origin + (target - origin) * progress
-            # Small deterministic wobble so the series is not a straight line.
-            wobble = (1 if step % 2 else -1) * (step % 3) * 0.6
-            score = int(round(max(0.0, min(100.0, value + wobble))))
+            wobble_sign = 1 if step % 2 else -1
+            interp_factors = {
+                key: max(
+                    0.0,
+                    min(
+                        100.0,
+                        origin_factors[key]
+                        + (current_factors[key] - origin_factors[key]) * progress
+                        + wobble_sign * (step % 3) * 0.6,
+                    ),
+                )
+                for key in current_factors
+            }
+
+            base_score = sum(interp_factors[f.key] * f.weight for f in agent.factors) / sum(
+                f.weight for f in agent.factors
+            )
+
+            if trust_model is not None:
+                score = int(round(trust_model.predict(interp_factors).score))
+            else:
+                score = int(round(base_score))
 
             captured = now - HISTORY_INTERVAL * (HISTORY_ROUNDS - step)
             snapshots.append(
                 TrustSnapshot(
                     agent_id=agent.id,
                     score=score,
-                    base_score=float(score),
+                    base_score=round(base_score, 2),
                     anomaly_penalty=0.0,
-                    factors=[],
+                    factors=[
+                        {
+                            "key": f.key,
+                            "label": f.label,
+                            "score": interp_factors[f.key],
+                            "weight": f.weight,
+                        }
+                        for f in agent.factors
+                    ],
                     reason="seed",
                     captured_at=captured,
                 )
@@ -798,7 +842,8 @@ async def seed(reset: bool = False) -> None:
 
         session.add_all(build_simulations())
         session.add_all(build_activity())
-        session.add_all(build_trust_history(agents, now=now))
+        trust_model = ml_models.load_trust_model()
+        session.add_all(build_trust_history(agents, now=now, trust_model=trust_model))
 
         await session.commit()
 
