@@ -26,21 +26,21 @@ export interface NavItem {
  * still route — to an honest placeholder rather than a 404.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Control Center", href: "/", icon: LayoutDashboard, built: true },
-  { label: "Trust Engine", href: "/trust-engine", icon: ShieldCheck, built: true },
-  { label: "AI Agents", href: "/agents", icon: Bot, built: true },
-  { label: "Policy Brain", href: "/policies", icon: Scale, built: true },
-  { label: "Decision Intelligence", href: "/decisions", icon: Workflow, built: true },
-  { label: "Simulation Engine", href: "/simulations", icon: FlaskConical, built: true },
-  { label: "Explain AI", href: "/explain", icon: Lightbulb, built: false },
-  { label: "Governance Ledger", href: "/ledger", icon: ScrollText, built: false },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, built: false },
-  { label: "Alerts", href: "/alerts", icon: Bell, built: false },
+  { label: "Control Center", href: "/console", icon: LayoutDashboard, built: true },
+  { label: "Trust Engine", href: "/console/trust-engine", icon: ShieldCheck, built: true },
+  { label: "AI Agents", href: "/console/agents", icon: Bot, built: true },
+  { label: "Policy Brain", href: "/console/policies", icon: Scale, built: true },
+  { label: "Decision Intelligence", href: "/console/decisions", icon: Workflow, built: true },
+  { label: "Simulation Engine", href: "/console/simulations", icon: FlaskConical, built: true },
+  { label: "Explain AI", href: "/console/explain", icon: Lightbulb, built: false },
+  { label: "Governance Ledger", href: "/console/ledger", icon: ScrollText, built: false },
+  { label: "Analytics", href: "/console/analytics", icon: BarChart3, built: false },
+  { label: "Alerts", href: "/console/alerts", icon: Bell, built: false },
 ];
 
 export const SETTINGS_ITEM: NavItem = {
   label: "Settings",
-  href: "/settings",
+  href: "/console/settings",
   icon: Settings,
   built: false,
 };

@@ -10,7 +10,7 @@ import { recomputeTrust } from "@/lib/api";
  */
 export async function runRecompute() {
   await recomputeTrust();
-  revalidatePath("/trust-engine");
-  revalidatePath("/agents");
-  revalidatePath("/");
+  revalidatePath("/console/trust-engine");
+  revalidatePath("/console/agents");
+  revalidatePath("/console");
 }

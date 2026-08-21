@@ -80,7 +80,7 @@ export default async function DecisionsPage() {
                 return (
                   <tr key={decision.id} className="group transition-colors hover:bg-surface-variant/20">
                     <td className="px-6 py-4">
-                      <Link href={`/decisions/${decision.id}`} className="block">
+                      <Link href={`/console/decisions/${decision.id}`} className="block">
                         <p className="font-mono text-body-sm text-on-surface group-hover:text-primary">
                           {decision.id}
                         </p>
@@ -119,7 +119,7 @@ export default async function DecisionsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <Link
-                        href={`/decisions/${decision.id}`}
+                        href={`/console/decisions/${decision.id}`}
                         aria-label={`Investigate ${decision.id}`}
                         className="text-outline transition-colors hover:text-primary"
                       >

@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, BrainCircuit, RefreshCw, ShieldCheck, Users } from "lucide-react";
 
-import { runRecompute } from "@/app/(console)/trust-engine/actions";
+import { runRecompute } from "@/app/console/trust-engine/actions";
 import { ApiError } from "@/components/ui/api-error";
 import { DriftBadge } from "@/components/ui/drift-badge";
 import { LifecycleBadge, trustColor } from "@/components/ui/lifecycle-badge";
