@@ -12,7 +12,7 @@ import asyncio
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 
 from app.core.compat import configure_event_loop
 from app.core.database import AsyncSessionLocal
@@ -26,13 +26,15 @@ from app.models import (
     LifecycleState,
     Policy,
     PolicyCheck,
+    PolicyVersion,
     Severity,
     SimulationOutcome,
     SimulationRun,
     TrustFactor,
     TrustSnapshot,
 )
-from app.services import trust_service
+from app.seed_policy_rules import POLICY_RULES
+from app.services import policy_engine, trust_service
 
 
 def _dt(iso: str) -> datetime:
@@ -235,6 +237,28 @@ def build_policies() -> list[Policy]:
             "2026-08-05T18:20:00Z",
             0,
             0,
+        ),
+        (
+            "pol-14",
+            "Low Trust High Value",
+            "v1.0.0",
+            "All agents",
+            True,
+            Severity.HIGH,
+            "2026-08-19T10:05:00Z",
+            52400,
+            34,
+        ),
+        (
+            "pol-15",
+            "Unproven Agent Spend Limit",
+            "v1.2.0",
+            "All agents",
+            True,
+            Severity.CRITICAL,
+            "2026-08-16T07:30:00Z",
+            52400,
+            9,
         ),
     ]
     return [
@@ -818,6 +842,10 @@ async def seed(reset: bool = False) -> None:
     async with AsyncSessionLocal() as session:
         if reset:
             # Order matters: children before parents.
+            # policies.active_version_id points at policy_versions, and
+            # policy_versions.policy_id points back — clear the pointer first
+            # or neither table can be deleted.
+            await session.execute(update(Policy).values(active_version_id=None))
             for model in (
                 SimulationOutcome,
                 SimulationRun,
@@ -826,6 +854,7 @@ async def seed(reset: bool = False) -> None:
                 TrustSnapshot,
                 TrustFactor,
                 Agent,
+                PolicyVersion,
                 Policy,
                 ActivityItem,
             ):
@@ -833,9 +862,30 @@ async def seed(reset: bool = False) -> None:
             await session.commit()
 
         agents = build_agents()
+        policies = build_policies()
         session.add_all(agents)
-        session.add_all(build_policies())
+        session.add_all(policies)
         await session.flush()  # agents must exist before decisions reference them
+
+        # Give each policy its initial immutable rule version and activate it.
+        for policy in policies:
+            entry = POLICY_RULES.get(policy.id)
+            if entry is None:
+                continue
+            rule, version, note = entry
+            policy_engine.parse_rule(rule)  # fail loudly at seed time on a typo
+            policy_version = PolicyVersion(
+                policy_id=policy.id,
+                version=version,
+                rule=rule,
+                note=note,
+                created_by="seed",
+                created_at=now,
+            )
+            session.add(policy_version)
+            await session.flush()
+            policy.active_version_id = policy_version.id
+            policy.version = version
 
         session.add_all(build_decisions())
         await session.flush()  # decisions must exist before simulations reference them
@@ -852,7 +902,8 @@ async def seed(reset: bool = False) -> None:
         evaluated = await trust_service.recompute_all(session, reason="seed-recompute", now=now)
 
     print(
-        "Seeded: 6 agents, 7 policies, 6 decisions, 3 simulations, 6 activity items, "
+        "Seeded: 6 agents, 9 policies (with rule versions), 6 decisions, "
+        "3 simulations, 6 activity items, "
         f"{len(agents) * HISTORY_ROUNDS} trust snapshots"
     )
     for agent, evaluation in evaluated:

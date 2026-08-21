@@ -3,8 +3,15 @@ import type {
   Agent,
   DashboardData,
   Decision,
+  EvaluateRequest,
+  EvaluateResponse,
   ModelInfo,
   Policy,
+  PolicyDetail,
+  PolicyRule,
+  PolicyVersion,
+  RuleVocabulary,
+  SimulateRuleResponse,
   RecomputeResponse,
   SimulationPredictRequest,
   SimulationPredictResponse,
@@ -135,3 +142,59 @@ export async function simulatePredict(
   }
   return (await res.json()) as SimulationPredictResponse;
 }
+
+// --- Policy Brain -----------------------------------------------------------
+
+export const fetchRuleVocabulary = () => apiGet<RuleVocabulary>("/policy/vocabulary");
+export const fetchPolicyDetails = () => apiGet<PolicyDetail[]>("/policy/policies");
+export const fetchPolicyDetail = (id: string) =>
+  apiGet<PolicyDetail>(`/policy/policies/${encodeURIComponent(id)}`);
+
+async function apiPost<T>(path: string, body: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new ApiError(`Cannot reach ATLAS API at ${API_BASE_URL} — ${message}`);
+  }
+
+  if (!res.ok) {
+    // 422 carries the engine's own validation message, which is far more
+    // useful to an author than a generic status line.
+    let detail = `API responded ${res.status} for ${path}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      // Non-JSON error body — keep the status line.
+    }
+    throw new ApiError(detail, res.status);
+  }
+
+  return (await res.json()) as T;
+}
+
+/** Runs the full active policy set against a hypothetical decision. */
+export const evaluatePolicies = (request: EvaluateRequest) =>
+  apiPost<EvaluateResponse>("/policy/evaluate", request);
+
+/** Replays a candidate rule over stored decisions before it is deployed. */
+export const simulatePolicyRule = (rule: PolicyRule) =>
+  apiPost<SimulateRuleResponse>("/policy/simulate", { rule }, REQUEST_TIMEOUT_MS * 4);
+
+/** Appends an immutable version to a policy and activates it. */
+export const createPolicyVersion = (
+  policyId: string,
+  payload: { rule: PolicyRule; version: string; note?: string },
+) =>
+  apiPost<PolicyVersion>(
+    `/policy/policies/${encodeURIComponent(policyId)}/versions`,
+    payload,
+  );

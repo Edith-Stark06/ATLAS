@@ -99,6 +99,119 @@ export interface Policy {
   violations24h: number;
 }
 
+// --- Policy Brain -----------------------------------------------------------
+
+export type RuleOperator = "lt" | "lte" | "gt" | "gte" | "eq" | "neq" | "in" | "not_in";
+export type RuleCombinator = "all" | "any";
+export type RuleEffect = "allow" | "require_human_review" | "block";
+
+export interface RuleCondition {
+  field: string;
+  operator: RuleOperator;
+  value: number | string | (number | string)[];
+}
+
+export interface PolicyRule {
+  conditions: RuleCondition[];
+  combinator: RuleCombinator;
+  effect: RuleEffect;
+  /** Capabilities governed; empty means every agent. */
+  applies_to: string[];
+}
+
+export interface RuleFieldSpec {
+  key: string;
+  label: string;
+  /** Python type name — "int", "float", "str". */
+  kind: string;
+  description: string;
+}
+
+/** Everything needed to compose a valid rule, served by the API so the
+ * authoring UI cannot drift from what the engine accepts. */
+export interface RuleVocabulary {
+  fields: RuleFieldSpec[];
+  operators: RuleOperator[];
+  combinators: RuleCombinator[];
+  effects: RuleEffect[];
+  capabilities: string[];
+}
+
+export interface PolicyVersion {
+  id: number;
+  policyId: string;
+  version: string;
+  rule: PolicyRule;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PolicyDetail extends Policy {
+  /** Null when the policy has no active version yet. */
+  rule: PolicyRule | null;
+  /** Human-readable rendering of the active rule. */
+  summary: string[];
+  versions: PolicyVersion[];
+}
+
+export interface ConditionResult {
+  description: string;
+  matched: boolean;
+  /** True when the condition could not be evaluated at all (missing value,
+   * type mismatch) — distinct from evaluating cleanly to false. */
+  skipped: boolean;
+}
+
+export interface PolicyEvaluation {
+  policyId: string;
+  policyName: string;
+  version: string;
+  matched: boolean;
+  inScope: boolean;
+  effect: RuleEffect | null;
+  conditions: ConditionResult[];
+}
+
+export interface EvaluateRequest {
+  trustScore: number;
+  riskScore: number;
+  amountUsd: number | null;
+  authorityLevel: number;
+  agentLifecycle: string;
+  capability: string;
+  hourUtc: number;
+}
+
+export interface EvaluateResponse {
+  effect: RuleEffect;
+  outcome: DecisionOutcome;
+  explanation: string[];
+  evaluations: PolicyEvaluation[];
+  /** Policies whose stored rule could not be parsed. */
+  invalid: string[];
+}
+
+export interface SimulatedDecision {
+  decisionId: string;
+  agentName: string;
+  action: string;
+  recordedOutcome: DecisionOutcome;
+  simulatedOutcome: DecisionOutcome;
+  matched: boolean;
+  changed: boolean;
+}
+
+export interface SimulateRuleResponse {
+  evaluated: number;
+  matched: number;
+  wouldBlock: number;
+  wouldEscalate: number;
+  wouldAllow: number;
+  changed: SimulatedDecision[];
+  sample: SimulatedDecision[];
+}
+
 /** Per-dimension risk breakdown, each 0–100. */
 export interface RiskVector {
   financial: number;
