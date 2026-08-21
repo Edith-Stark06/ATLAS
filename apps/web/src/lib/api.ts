@@ -1,3 +1,9 @@
+// Server-only: this module reads the session cookie. `server-only` turns an
+// accidental client import into a build error naming the file, rather than a
+// confusing runtime failure about `next/headers`.
+import "server-only";
+
+import { getToken } from "@/lib/session";
 import type {
   ActivityItem,
   Agent,
@@ -27,8 +33,21 @@ import type {
   TrustOverview,
 } from "@/lib/types";
 
+/**
+ * Where this server reaches the ATLAS API.
+ *
+ * Read at runtime, and server-side only: browser code goes through
+ * `/api/atlas/...` (see lib/api-client.ts), so this never has to be an address
+ * a browser can resolve. In Docker that means the internal service name —
+ * `http://api:8000` — and the API needs no published port at all.
+ *
+ * `NEXT_PUBLIC_API_URL` is still honoured as a fallback so existing local
+ * `.env` files keep working, but prefer `ATLAS_API_URL`: a `NEXT_PUBLIC_`
+ * value is inlined into the client bundle at build time, which makes it both
+ * unchangeable at runtime and visible to anyone who views source.
+ */
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  process.env.ATLAS_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -63,11 +82,31 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Where a request goes, and what authenticates it.
+ *
+ * Server-side only: the session token lives in an httpOnly cookie, so it can
+ * be read here but never in the browser. Client components use
+ * `lib/api-client.ts`, which routes through `/api/atlas/...` so the token is
+ * attached server-side and page scripts never hold it.
+ */
+async function resolveRequest(path: string): Promise<{ url: string; headers: HeadersInit }> {
+  const token = await getToken();
+
+  return {
+    url: `${API_BASE_URL}/api/v1${path}`,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  };
+}
+
 async function apiGet<T>(path: string): Promise<T> {
+  const { url, headers } = await resolveRequest(path);
+
   let res: Response;
   try {
-    res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
+    res = await fetch(url, {
       cache: "no-store",
+      headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
@@ -76,6 +115,12 @@ async function apiGet<T>(path: string): Promise<T> {
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new ApiError("Your session has expired — sign in again.", 401);
+    }
+    if (res.status === 403) {
+      throw new ApiError("Your role does not permit this.", 403);
+    }
     throw new ApiError(`API responded ${res.status} for ${path}`, res.status);
   }
 
@@ -158,11 +203,13 @@ export const fetchPolicyDetail = (id: string) =>
   apiGet<PolicyDetail>(`/policy/policies/${encodeURIComponent(id)}`);
 
 async function apiPost<T>(path: string, body: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  const { url, headers } = await resolveRequest(path);
+
   let res: Response;
   try {
-    res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
+    res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...headers, "Content-Type": "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify(body),

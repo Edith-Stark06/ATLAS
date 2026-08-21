@@ -58,6 +58,10 @@ class ExecuteRequest:
     hour_utc: int | None = None
     #: Reference from the originating enterprise system. Generated when absent.
     decision_id: str | None = None
+    #: Who committed this, as `kind:identifier` (see auth_service.Actor).
+    #: Recorded in the ledger and covered by its hash: "the system approved
+    #: it" is not an answer anyone can act on at review time.
+    actor: str = "system"
 
 
 @dataclass(frozen=True)
@@ -134,6 +138,7 @@ def _ledger_payload(
     decision: Decision,
     result: SimulationResult,
     request: SimulationRequest,
+    actor: str,
 ) -> dict:
     """The evidence pinned into the hash.
 
@@ -159,6 +164,9 @@ def _ledger_payload(
             "outcome": decision.outcome.value,
             "decidedAt": ledger.iso(decision.decided_at),
             "latencyMs": decision.latency_ms,
+            # Inside the hash like everything else, so the attribution cannot
+            # be rewritten after the fact any more than the outcome can.
+            "actor": actor,
         },
         "inputs": {
             "trustScore": result.trust_score,
@@ -266,7 +274,12 @@ async def execute(db: AsyncSession, request: ExecuteRequest) -> ExecuteResult:
         db,
         kind=ledger.LedgerKind.DECISION_RECORDED,
         subject_id=decision_id,
-        payload=_ledger_payload(decision=decision, result=result, request=evaluation_request),
+        payload=_ledger_payload(
+            decision=decision,
+            result=result,
+            request=evaluation_request,
+            actor=request.actor,
+        ),
         recorded_at=decided_at,
     )
 

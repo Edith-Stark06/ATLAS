@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.deps import RequireAdmin
 from app.core.database import get_db
 from app.models import Agent, Policy
 from app.schemas.policy import (
@@ -118,7 +119,13 @@ async def get_policy(policy_id: str, db: AsyncSession = Depends(get_db)) -> Poli
     return _detail(policy, versions)
 
 
-@router.post("/policies/{policy_id}/versions", response_model=PolicyVersionRead, status_code=201)
+@router.post(
+    "/policies/{policy_id}/versions",
+    response_model=PolicyVersionRead,
+    status_code=201,
+    # Authoring a rule changes what governs every future decision.
+    dependencies=[RequireAdmin],
+)
 async def create_policy_version(
     policy_id: str, request: CreateVersionRequest, db: AsyncSession = Depends(get_db)
 ) -> PolicyVersionRead:

@@ -6,7 +6,7 @@ import { BadgeCheck, Play, Scale, ShieldAlert, TriangleAlert } from "lucide-reac
 import { OutcomeBadge, riskColor } from "@/components/ui/outcome-badge";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
-import { runSimulation } from "@/lib/api";
+import { runSimulation } from "@/lib/api-client";
 import type {
   Agent,
   PredictedOutcome,

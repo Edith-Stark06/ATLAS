@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import current_actor
 from app.core.database import get_db
 from app.schemas.ledger import (
     ChainBreakRead,
@@ -11,6 +12,7 @@ from app.schemas.ledger import (
     LedgerVerifyResponse,
 )
 from app.services import decision_service, ledger_service
+from app.services.auth_service import Actor
 from app.services.decision_service import ExecuteRequest
 
 router = APIRouter(prefix="/ledger", tags=["ledger"])
@@ -20,7 +22,9 @@ decisions_router = APIRouter(prefix="/decisions", tags=["decisions"])
 
 @decisions_router.post("/execute", response_model=ExecuteDecisionResponse)
 async def execute_decision(
-    request: ExecuteDecisionRequest, db: AsyncSession = Depends(get_db)
+    request: ExecuteDecisionRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: Actor = Depends(current_actor),
 ) -> ExecuteDecisionResponse:
     """Run an action through the governance pipeline and commit the outcome.
 
@@ -28,6 +32,15 @@ async def execute_decision(
     decision, its policy checks, the simulation that decided it, and an
     append-only ledger entry — all in one transaction.
     """
+    # An agent-bound key may only act for its own agent. Without this, any
+    # agent's credential could commit decisions in another agent's name, and
+    # the audit trail would attribute them to the wrong subject.
+    if actor.agent_id is not None and actor.agent_id != request.agent_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"This credential may only act for agent '{actor.agent_id}'",
+        )
+
     try:
         result = await decision_service.execute(
             db,
@@ -38,6 +51,7 @@ async def execute_decision(
                 risk_score=request.risk_score,
                 hour_utc=request.hour_utc,
                 decision_id=request.decision_id,
+                actor=actor.audit_label,
             ),
         )
     except decision_service.AgentNotFound as exc:

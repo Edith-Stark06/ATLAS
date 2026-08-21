@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import RequireOperator
 from app.core.database import get_db
 from app.ml import models as ml_models
 from app.models import Agent
@@ -157,7 +158,12 @@ async def simulate(request: SimulationPredictRequest) -> SimulationPredictRespon
     )
 
 
-@router.post("/recompute", response_model=RecomputeResponse)
+@router.post(
+    "/recompute",
+    response_model=RecomputeResponse,
+    # Writes snapshots and moves agents between lifecycle states.
+    dependencies=[RequireOperator],
+)
 async def recompute(db: AsyncSession = Depends(get_db)) -> RecomputeResponse:
     """Re-evaluate every agent and record a new snapshot for each."""
     previous = {
