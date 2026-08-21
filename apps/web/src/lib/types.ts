@@ -275,6 +275,71 @@ export interface SimulationRun {
   request: { label: string; value: string }[];
 }
 
+// --- Pre-execution simulation (what-if, never persisted) ---------------------
+
+export interface SimulateActionRequest {
+  action: string;
+  agentId?: string | null;
+  amountUsd?: number | null;
+  /** 0–100, higher is riskier */
+  riskScore: number;
+  /** Overrides the agent's stored score — this is what makes "what if trust
+   * dropped to 40?" answerable. */
+  trustScore?: number | null;
+  hourUtc?: number | null;
+  /** 0–1 */
+  policyPassRate?: number;
+}
+
+export interface PredictedOutcome {
+  outcome: DecisionOutcome;
+  label: string;
+  /** 0–1 */
+  probability: number;
+  financialImpactUsd: number;
+  /** Residual risk if this path is taken, 0–100. */
+  riskScore: number;
+  /** Whether the active rules would permit this path. */
+  compliant: boolean;
+  recommended: boolean;
+}
+
+export interface PolicyTraceEntry {
+  policyId: string;
+  policyName: string;
+  version: string;
+  matched: boolean;
+  inScope: boolean;
+  effect: RuleEffect | null;
+}
+
+export interface SimulateActionResponse {
+  recommendation: DecisionOutcome;
+  /** Confidence in the recommended path, 0–100. */
+  confidence: number;
+  outcomes: PredictedOutcome[];
+  /** Money that moves if the recommendation is followed. Deterministic —
+   * nothing moves once the recommendation is to block or escalate. */
+  expectedExposureUsd: number;
+  withheldUsd: number;
+  /** What an unpoliced system would expose on average. The gap against
+   * expectedExposureUsd is what the governance layer is buying. */
+  unconstrainedExposureUsd: number;
+  /** 0–1 */
+  adverseProbability: number;
+  /** True when the rules, not the model, determined the recommendation. */
+  policyForced: boolean;
+  policyEffect: RuleEffect;
+  policyTrace: PolicyTraceEntry[];
+  agentName: string;
+  trustScore: number;
+  /** False when no trained classifier is loaded — probabilities are then an
+   * even split, which reads as "no signal" rather than a confident guess. */
+  modelBacked: boolean;
+  durationMs: number;
+  explanation: string[];
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {

@@ -67,7 +67,19 @@ Run it:
 cd apps/api && .venv/Scripts/python.exe -m app
 ```
 
-Use `python -m app` rather than invoking `uvicorn` directly — the entrypoint installs a Windows event-loop shim that psycopg3 requires (see `app/core/compat.py`).
+Use `python -m app` rather than invoking `uvicorn` directly. On Windows,
+uvicorn picks a `ProactorEventLoop` for a single-process server and a
+`SelectorEventLoop` when `--reload` forks a subprocess — and psycopg3's async
+driver only works on the latter. `app/__main__.py` passes the loop factory
+explicitly so the database works either way; running `uvicorn app.main:app`
+by hand without `--reload` fails on the first query. Entrypoints that reach
+the database through `asyncio.run` (alembic, the seeder, pytest) use the
+policy shim in `app/core/compat.py` instead.
+
+Auto-reload is off by default (`API_RELOAD=true` to enable) — the reloader's
+child process can outlive an abruptly killed parent and keep serving stale
+code from port 8000, which looks exactly like "my changes aren't taking
+effect".
 
 Apply migrations:
 
@@ -125,7 +137,7 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/policies` | Policy Governance + rule builder | `policy-governance` |
 | `/console/decisions` | Decision Intelligence | `decision-intelligence-detail` |
 | `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
-| `/console/simulations` | Simulation Engine Workspace | `simulation-engine-workspace` |
+| `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
 | `/console/status` | System health | — |
 
@@ -164,6 +176,8 @@ no mapping layer.
 | `POST /api/v1/policy/policies/{id}/versions` | Append an immutable rule version |
 | `POST /api/v1/policy/evaluate` | Run the active policy set against a hypothetical decision |
 | `POST /api/v1/policy/simulate` | Replay a candidate rule over recorded decisions |
+| `POST /api/v1/simulation/run` | Evaluate a proposed action end to end — not persisted |
+| `POST /api/v1/simulation/rebuild` | Regenerate every stored run from the current engine |
 
 ## Trust Engine
 
@@ -278,6 +292,49 @@ simulatable — none of which is possible if a policy is a hand-written branch.
   other policies still restrict it — the console labels that a coverage gap,
   not an outcome reversal.
 
+## Simulation Engine
+
+Trust says how much an agent is worth believing. Policy says what the rules
+permit. The Simulation Engine answers the question those two leave open:
+**if this action ran right now, what would happen?** It runs before anything
+executes, so the answer is still useful.
+
+`POST /simulation/run` takes a proposed action and returns one
+recommendation with the evidence behind it: the trained classifier's
+probability over `approved` / `escalated` / `blocked`, the full policy trace,
+and what it costs.
+
+- **Policy is a hard constraint; the model is advisory.** A `block` or
+  `require_human_review` effect decides the recommendation outright and the
+  response is flagged `policyForced`. A statistical prediction must never
+  unblock something the rules explicitly forbid — however confident it is.
+  Above that, the model may still escalate what the rules permit, when
+  combined `escalated + blocked` probability crosses
+  `ADVERSE_ESCALATION_THRESHOLD`.
+- **Money follows the recommendation, not the probabilities.** Once the
+  verdict is to block or hold, `expectedExposureUsd` is `0` and the amount
+  appears in `withheldUsd`. Quoting a probability-weighted figure there would
+  report exposure the system is actively preventing — reading
+  "blocked, expected exposure $3,236" is nonsense.
+- **The counterfactual is reported too.** `unconstrainedExposureUsd` is what
+  an *unpoliced* system would expose on average. The gap between it and
+  `expectedExposureUsd` is what the governance layer is buying, in dollars.
+- **Nothing is persisted.** A what-if must not appear in the audit trail
+  beside decisions that actually happened. Stored runs are written only via
+  `rebuild`, which attaches them to real decisions.
+- **A missing agent is a 404, not a default.** Scoring a typo'd agent ID
+  against a fallback trust score would hand back a confident verdict for an
+  agent nobody evaluated. `agentId: null` remains valid and means a
+  deliberately unattributed scenario.
+- **No trained model reads as "no signal".** Without an artifact on disk the
+  probabilities are an even three-way split and `modelBacked` is `false`,
+  rather than a confident-looking guess.
+
+The console workspace at `/console/simulations` drives this live: pick an
+agent, set an amount and a risk score, and override trust to ask "what if
+this agent's score dropped to 40?" — the one question the stored history
+cannot answer.
+
 ---
 
 ## Build phases
@@ -290,6 +347,6 @@ simulatable — none of which is possible if a policy is a hand-written branch.
 | 3 | Trust Engine — scoring, history, drift, lifecycle, forecasting | ✅ |
 | 4 | ML Trust Engine — trained models replacing every Phase 3 heuristic | ✅ |
 | 5 | Policy Brain — versioned rules, evaluation, pre-deploy simulation | ✅ |
-| 6 | Simulation Engine — pre-execution outcome prediction | |
+| 6 | Simulation Engine — pre-execution outcome prediction | ✅ |
 | 7 | Decision pipeline & governance ledger | |
 | 8 | Auth, seed data, deployment | |

@@ -12,9 +12,12 @@ def configure_event_loop() -> None:
     Only affects local Windows development — on Linux (Docker, CI, production)
     this is a no-op.
 
-    The policy API is deprecated in Python 3.14 but remains the only mechanism
-    uvicorn honours; `asyncio.run(loop_factory=...)` isn't reachable through
-    uvicorn's reload supervisor. Revisit once uvicorn exposes `loop_factory`.
+    Call this from entrypoints that reach the database through `asyncio.run`
+    (alembic, the seeder, pytest), which builds its loop from the policy.
+
+    It does *not* cover the API server: uvicorn >= 0.36 selects a loop factory
+    and never consults the policy, so `python -m app` sets the loop itself.
+    See `app/__main__.py`.
     """
     if sys.platform != "win32":
         return

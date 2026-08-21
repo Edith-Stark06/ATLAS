@@ -11,6 +11,8 @@ import type {
   PolicyRule,
   PolicyVersion,
   RuleVocabulary,
+  SimulateActionRequest,
+  SimulateActionResponse,
   SimulateRuleResponse,
   RecomputeResponse,
   SimulationPredictRequest,
@@ -188,6 +190,16 @@ export const evaluatePolicies = (request: EvaluateRequest) =>
 /** Replays a candidate rule over stored decisions before it is deployed. */
 export const simulatePolicyRule = (rule: PolicyRule) =>
   apiPost<SimulateRuleResponse>("/policy/simulate", { rule }, REQUEST_TIMEOUT_MS * 4);
+
+// --- Simulation Engine ------------------------------------------------------
+
+/**
+ * Evaluates a proposed action through the whole pre-execution pipeline.
+ * Nothing is persisted — what-ifs should not appear in the audit trail
+ * alongside decisions that actually happened.
+ */
+export const runSimulation = (request: SimulateActionRequest) =>
+  apiPost<SimulateActionResponse>("/simulation/run", request, REQUEST_TIMEOUT_MS * 2);
 
 /** Appends an immutable version to a policy and activates it. */
 export const createPolicyVersion = (
