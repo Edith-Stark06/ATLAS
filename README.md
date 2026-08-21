@@ -138,12 +138,13 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/decisions` | Decision Intelligence | `decision-intelligence-detail` |
 | `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
 | `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
+| `/console/ledger` | Governance Ledger — chain integrity + audit records | built in Next.js |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
 | `/console/status` | System health | — |
 
-`/console/explain`, `/ledger`, `/analytics`, `/alerts` and `/settings` appear in
-the nav and route to placeholders — they have no design yet and are marked
-"soon" in the sidebar.
+`/console/explain`, `/analytics`, `/alerts` and `/settings` appear in the nav
+and route to placeholders — they have no design yet and are marked "soon" in
+the sidebar.
 
 The `executive-overview` export is ~90% identical to `atlas-control-center`
 (which supersedes it as "Refined"), so it is not built as a separate route.
@@ -178,6 +179,11 @@ no mapping layer.
 | `POST /api/v1/policy/simulate` | Replay a candidate rule over recorded decisions |
 | `POST /api/v1/simulation/run` | Evaluate a proposed action end to end — not persisted |
 | `POST /api/v1/simulation/rebuild` | Regenerate every stored run from the current engine |
+| `POST /api/v1/decisions/execute` | Run an action through the pipeline and commit it |
+| `GET /api/v1/ledger` | Audit records, newest first (`kind`, `subjectId`, `limit`) |
+| `GET /api/v1/ledger/verify` | Recompute every hash and check every link |
+| `GET /api/v1/ledger/stats` | Chain head, counts by kind, model fingerprint |
+| `GET /api/v1/ledger/{seq}` | One audit record with its pinned evidence |
 
 ## Trust Engine
 
@@ -335,6 +341,63 @@ agent, set an amount and a risk score, and override trust to ask "what if
 this agent's score dropped to 40?" — the one question the stored history
 cannot answer.
 
+## Decision Pipeline & Governance Ledger
+
+Everything before this evaluated hypotheticals. `POST /decisions/execute` is
+the committing path: it runs the same pre-execution evaluation, then records
+what was decided, why, and against which rules and model.
+
+Order is not arbitrary. Trust, policy and simulation all run *before*
+anything is written, so an action that is going to be blocked is blocked on
+evidence gathered beforehand, not justified afterwards. The decision, its
+policy checks, the simulation that decided it and the ledger entry are
+written in **one transaction** — a decision that exists without an audit
+record is precisely the failure this system is built to prevent.
+
+Callers branch on `executed`, a plain boolean, rather than string-matching
+the outcome. A replayed `decisionId` — the normal result of an enterprise
+system retrying after a timeout — returns **409**, not a second decision and
+not a raw database error.
+
+### The ledger is a hash chain
+
+Each entry commits to the one before it:
+
+```
+entry_hash = sha256(version ⧺ seq ⧺ prev_hash ⧺ kind ⧺ subject_id ⧺ recorded_at ⧺ canonical_json(payload))
+```
+
+Position, linkage, type, subject and time are all inside the preimage — not
+just the payload — so entries cannot be reordered or reassigned to a
+different decision without breaking a hash.
+
+- **Tamper-evident, not tamper-proof.** Anyone with database access can still
+  edit a row. What they cannot do is make it verify: the edit invalidates
+  that entry's hash and every hash after it. `GET /ledger/verify` recomputes
+  the whole chain on each request — a verification result that is itself just
+  a database row would prove nothing. Real tamper-*proofing* needs the head
+  hash anchored somewhere the same operator does not control, which is a
+  deployment concern rather than a schema one.
+- **One canonical serialisation.** Sorted keys, no whitespace, non-JSON types
+  rejected rather than coerced. If the same evidence can serialise two ways,
+  a mismatch proves nothing.
+- **Money is a string, fixed to cents.** Hashing a float would make the
+  record depend on repr precision, and `"12450.5"` must not be a second
+  spelling of the `12450.50` in the column.
+- **The pinned evidence is what gets recomputed.** Each decision entry holds
+  the inputs *actually used* (defaults resolved, not the caller's nulls), the
+  rule **versions** in force, a SHA-256 fingerprint of the trained artifacts,
+  the predicted distribution, and the exposure. A policy renamed or
+  re-authored later cannot change what a past decision is judged against.
+- **`subject_id` is deliberately not a foreign key.** An audit record must
+  outlive the thing it describes; an FK would either block the deletion or
+  cascade the history away with it.
+
+Known limit, stated rather than papered over: `append` reads the current head
+and writes the next entry, so concurrent appends can fork the chain. Single
+-writer development is fine; a busy deployment needs a serialisable
+transaction or an advisory lock on the head.
+
 ---
 
 ## Build phases
@@ -348,5 +411,5 @@ cannot answer.
 | 4 | ML Trust Engine — trained models replacing every Phase 3 heuristic | ✅ |
 | 5 | Policy Brain — versioned rules, evaluation, pre-deploy simulation | ✅ |
 | 6 | Simulation Engine — pre-execution outcome prediction | ✅ |
-| 7 | Decision pipeline & governance ledger | |
+| 7 | Decision pipeline & governance ledger — hash-chained audit records | ✅ |
 | 8 | Auth, seed data, deployment | |

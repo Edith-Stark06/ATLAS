@@ -219,8 +219,36 @@ async def _persist(
             )
         )
 
-    await db.commit()
+    # Flush, never commit: the decision pipeline writes the decision, its
+    # policy checks, this run and the ledger entry as one unit. A commit here
+    # would let a decision exist without its audit record.
+    await db.flush()
     return run_id
+
+
+async def attach_to_decision(
+    db: AsyncSession,
+    *,
+    decision_id: str,
+    request: SimulationRequest,
+    result: SimulationResult,
+) -> str:
+    """Store an already-computed verdict against a decision.
+
+    The pipeline needs the verdict *before* the decision row exists (it is
+    what determines the outcome), so it cannot use `run(persist_for_decision=)`.
+    Re-running the model afterwards would risk persisting a prediction subtly
+    different from the one that actually decided.
+    """
+    return await _persist(
+        db,
+        decision_id=decision_id,
+        request=request,
+        verdict=result.verdict,
+        agent_name=result.agent_name,
+        trust_score=result.trust_score,
+        duration_ms=result.duration_ms,
+    )
 
 
 def build_request_rows(request: SimulationRequest, trust_score: int, agent_name: str) -> list[dict]:
@@ -272,4 +300,7 @@ async def rebuild_for_decisions(db: AsyncSession) -> int:
         await run(db, request, persist_for_decision=decision.id)
         rebuilt += 1
 
+    # One commit for the whole rebuild — a failure part-way through leaves the
+    # previous runs intact rather than a half-regenerated ledger view.
+    await db.commit()
     return rebuilt

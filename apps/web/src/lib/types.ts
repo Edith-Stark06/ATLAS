@@ -340,6 +340,81 @@ export interface SimulateActionResponse {
   explanation: string[];
 }
 
+// --- Decision pipeline & governance ledger -----------------------------------
+
+export interface ExecuteDecisionRequest {
+  agentId: string;
+  action: string;
+  amountUsd?: number | null;
+  /** 0–100, higher is riskier */
+  riskScore: number;
+  hourUtc?: number | null;
+  /** Reference from the originating system. Generated when absent. */
+  decisionId?: string | null;
+}
+
+export interface ExecuteDecisionResponse {
+  decisionId: string;
+  outcome: DecisionOutcome;
+  /** True only when the action is cleared to run. Branch on this rather than
+   * string-matching the outcome. */
+  executed: boolean;
+  agentName: string;
+  trustScore: number;
+  confidence: number;
+  rationale: string;
+  latencyMs: number;
+  expectedExposureUsd: number;
+  withheldUsd: number;
+  ledgerSeq: number;
+  ledgerHash: string;
+}
+
+export type LedgerKind =
+  | "decision_recorded"
+  | "policy_activated"
+  | "trust_recomputed";
+
+export interface LedgerEntry {
+  seq: number;
+  entryHash: string;
+  prevHash: string;
+  kind: LedgerKind | string;
+  subjectId: string;
+  /** The pinned evidence, hashed verbatim — this is what an auditor
+   * recomputes against. Shape varies by kind. */
+  payload: Record<string, unknown>;
+  /** ISO-8601 */
+  recordedAt: string;
+}
+
+export interface ChainBreak {
+  seq: number;
+  reason: string;
+  expected: string;
+  found: string;
+}
+
+export interface LedgerVerification {
+  valid: boolean;
+  entriesChecked: number;
+  breaks: ChainBreak[];
+  headHash: string | null;
+}
+
+export interface LedgerStats {
+  entries: number;
+  headHash: string | null;
+  headSeq: number | null;
+  /** ISO-8601 */
+  firstRecordedAt: string | null;
+  lastRecordedAt: string | null;
+  countsByKind: Record<string, number>;
+  /** SHA-256 of the trained artifacts on disk. A decision whose pinned
+   * fingerprint differs was made by a different model. */
+  modelFingerprint: string | null;
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {

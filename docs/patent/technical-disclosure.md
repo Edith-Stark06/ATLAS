@@ -243,6 +243,44 @@ generates a synthetic dataset with disclosed, inspectable structure:
   temporal-data evaluation, and getting it wrong would invalidate every
   number in §6.
 
+### 5.7 Tamper-Evident Governance Record with Model and Rule Pinning
+
+(`app/services/ledger.py`, `app/services/decision_service.py`)
+
+The output of a trained model is only auditable if the *conditions* that
+produced it are recoverable. A stored decision saying "blocked" is not
+evidence: the model has since been retrained and the policy has since been
+re-authored, so nothing in the database can reproduce the verdict.
+
+Each committed decision therefore appends one record binding together, in a
+single hash preimage:
+
+- the inputs **as resolved** (defaults substituted, not the caller's nulls);
+- the identifier *and version string* of every governance rule evaluated,
+  with its match result and effect;
+- a SHA-256 fingerprint computed over the trained model artifacts
+  themselves, rather than a recorded training timestamp;
+- the predicted outcome distribution and the resulting decision; and
+- the monetary exposure permitted and withheld, in fixed-point decimal.
+
+The record's hash covers its sequence position, its predecessor's hash, its
+type, its subject and its timestamp in addition to that payload, under a
+canonical serialisation (sorted keys, no insignificant whitespace,
+non-serialisable types rejected rather than coerced). Verification
+recomputes the entire chain rather than consulting a stored validity flag.
+
+The technical effect is specific: modifying any recorded field of any
+historical decision — including reordering records or reassigning one to a
+different decision — invalidates that record's hash and every subsequent
+hash, and the discrepancy is localisable to the individual record and field.
+Pinning the artifact fingerprint further distinguishes "this model decided
+this" from "a model with this name decided this", which is the distinction
+that matters once the model has been retrained.
+
+This is deliberately characterised as tamper-*evident*. Tamper-*proofing*
+requires anchoring the chain head outside the operator's control and is not
+claimed here.
+
 ## 6. Technical Effect — Evaluation Results
 
 Produced by `python -m app.ml.train`, written verbatim to
@@ -310,13 +348,24 @@ requested by an autonomous software agent, comprising:
 7. generating a human-readable explanation of the decision, including a
    per-factor attribution derived from the trained model of (2); and
 8. recording the decision, the trust score, the anomaly determination, and
-   the explanation in an append-only governance record prior to execution.
+   the explanation in an append-only governance record prior to execution,
+   the record further comprising a version identifier for each governance
+   policy evaluated and a cryptographic digest computed over the trained
+   model artifacts of (2); and
+9. computing a cryptographic hash of the record of (8) over a canonical
+   serialisation of the record together with the hash of the immediately
+   preceding record, such that modification of any previously recorded
+   decision is detectable by recomputation.
 
 Dependent elements worth capturing separately: the fallback behaviour of
 (2) when no trained model is available (deterministic heuristic
-substitution, §4.2); the graceful transition mechanism of §5.5; and the
+substitution, §4.2); the graceful transition mechanism of §5.5; the
 multi-class outcome-probability prediction of §5.3 as a second, coupled
-application of the same trained-model-gates-execution pattern.
+application of the same trained-model-gates-execution pattern; writing the
+decision of (6) and the record of (8) within a single atomic transaction, so
+no executed decision can lack an audit record; and rejecting a repeated
+external transaction reference rather than recording a second decision for
+one event (§5.7).
 
 ## 8. Implementation Notes for the Record
 

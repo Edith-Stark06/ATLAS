@@ -5,6 +5,11 @@ import type {
   Decision,
   EvaluateRequest,
   EvaluateResponse,
+  ExecuteDecisionRequest,
+  ExecuteDecisionResponse,
+  LedgerEntry,
+  LedgerStats,
+  LedgerVerification,
   ModelInfo,
   Policy,
   PolicyDetail,
@@ -200,6 +205,27 @@ export const simulatePolicyRule = (rule: PolicyRule) =>
  */
 export const runSimulation = (request: SimulateActionRequest) =>
   apiPost<SimulateActionResponse>("/simulation/run", request, REQUEST_TIMEOUT_MS * 2);
+
+// --- Decision pipeline & governance ledger -----------------------------------
+
+/**
+ * Runs an action through the pipeline and commits it. Unlike `runSimulation`,
+ * this writes a decision, its policy checks and an append-only ledger entry.
+ */
+export const executeDecision = (request: ExecuteDecisionRequest) =>
+  apiPost<ExecuteDecisionResponse>("/decisions/execute", request, REQUEST_TIMEOUT_MS * 2);
+
+export const fetchLedger = (params: { limit?: number; subjectId?: string } = {}) => {
+  const query = new URLSearchParams();
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.subjectId) query.set("subjectId", params.subjectId);
+  const suffix = query.toString();
+  return apiGet<LedgerEntry[]>(`/ledger${suffix ? `?${suffix}` : ""}`);
+};
+
+/** Recomputes every hash and checks every link — never a cached flag. */
+export const verifyLedger = () => apiGet<LedgerVerification>("/ledger/verify");
+export const fetchLedgerStats = () => apiGet<LedgerStats>("/ledger/stats");
 
 /** Appends an immutable version to a policy and activates it. */
 export const createPolicyVersion = (

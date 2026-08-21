@@ -7,14 +7,18 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
 import { ApiError } from "@/components/ui/api-error";
-import { fetchDecisions, tryFetch } from "@/lib/api";
+import { ExecutePanel } from "@/components/decisions/execute-panel";
+import { fetchAgents, fetchDecisions, tryFetch } from "@/lib/api";
 import { cn, formatTime, formatUsd } from "@/lib/utils";
 
 export const metadata = { title: "Decision Intelligence — ATLAS" };
 export const dynamic = "force-dynamic";
 
 export default async function DecisionsPage() {
-  const result = await tryFetch(fetchDecisions);
+  const [result, agentsResult] = await Promise.all([
+    tryFetch(fetchDecisions),
+    tryFetch(fetchAgents),
+  ]);
 
   if (!result.ok) {
     return (
@@ -44,6 +48,10 @@ export default async function DecisionsPage() {
         highlight="Intelligence"
         description="Every autonomous action that passed through the governance pipeline, with the trust state and policy evidence behind each verdict."
       />
+
+      {agentsResult.ok && agentsResult.data.length > 0 && (
+        <ExecutePanel agents={agentsResult.data} />
+      )}
 
       <div className="mb-stack-md grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Approved" value={String(approved)} icon={CircleCheck} tone="tertiary" />
