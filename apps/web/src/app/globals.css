@@ -74,6 +74,13 @@
   --color-brand-emerald: #10b981;
   --color-brand-amber: #f59e0b;
 
+  /* --- Premium refinement (Stitch "Premium Refinement" pass) --- */
+  /* The page sits on a darker base than the panels, so glass surfaces read
+     as raised rather than flush. */
+  --color-surface-base: #0c0e15;
+  --color-cyan-glow: #06b6d4;
+  --color-tertiary-green: #4edea3;
+
   /* --- Typography --- */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -112,6 +119,64 @@
   --text-status-label--line-height: 1;
   --text-status-label--font-weight: 700;
 
+  /* Oversized numerals for hero metrics — tight tracking so large figures
+     read as one shape rather than spaced digits. */
+  --text-hero-num: 48px;
+  --text-hero-num--line-height: 1;
+  --text-hero-num--letter-spacing: -0.04em;
+  --text-hero-num--font-weight: 800;
+
+  --text-label-mono-xs: 10px;
+  --text-label-mono-xs--line-height: 1.2;
+  --text-label-mono-xs--letter-spacing: 0.08em;
+  --text-label-mono-xs--font-weight: 600;
+
+  /* --- Motion --- */
+  --animate-fade-in-up: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-glow: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin-slow: spin 40s linear infinite;
+  --animate-spin-slow-reverse: spin 60s linear infinite reverse;
+  --animate-draw-radar: draw-radar 0.5s ease-out both;
+  --animate-draw-line: draw-line 1.5s ease-out both;
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 15px rgb(6 182 212 / 0.4));
+    }
+    50% {
+      filter: drop-shadow(0 0 25px rgb(6 182 212 / 0.7));
+    }
+  }
+
+  @keyframes draw-radar {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes draw-line {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
   /* --- Radius (roundness: ROUND_FOUR / "Soft-Industrial") --- */
   --radius-sm: 0.125rem;
   --radius-DEFAULT: 0.25rem;
@@ -126,6 +191,9 @@
   --spacing-stack-lg: 32px;
   --spacing-gutter: 16px;
   --spacing-container-padding: 24px;
+  /* Wider gutter between dashboard modules than inside them — the premium
+     pass leans on breathing room to signal separation instead of borders. */
+  --spacing-col-gap: 24px;
 }
 
 @layer base {
@@ -134,22 +202,90 @@
   }
 
   body {
-    background-color: var(--color-background);
+    /* A darker base than the panels, with a cyan bloom from the top edge —
+       this is what makes glass surfaces read as raised rather than flush. */
+    background-color: var(--color-surface-base);
+    background-image:
+      radial-gradient(circle at 50% 0%, rgb(6 182 212 / 0.08) 0%, transparent 60%),
+      linear-gradient(to bottom, var(--color-surface-base) 0%, var(--color-surface) 100%);
+    background-attachment: fixed;
     color: var(--color-on-surface);
     /* Spelled out rather than var(--font-sans): Tailwind only emits a theme
        variable once some utility references it, and nothing here uses font-sans. */
     font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  /* Thin, unobtrusive scrollbars — the default Windows bar is heavy enough
+     to break the dark, low-chrome feel of the console. */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.1);
+    border-radius: 4px;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.2);
+  }
 }
 
+/* Elevation level 1 — cards and containers. */
 @utility glass-panel {
-  background-color: rgb(25 27 35 / 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgb(255 255 255 / 0.08);
+  background-color: rgb(29 31 39 / 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(255 255 255 / 0.05);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Lift toward the viewer on hover. Suppressed for anyone who has asked the
+   OS to reduce motion. */
+@utility glass-panel-hover {
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgb(6 182 212 / 0.3);
+    box-shadow:
+      0 12px 40px rgb(0 0 0 / 0.3),
+      0 0 15px rgb(6 182 212 / 0.1);
+  }
+}
+
+/* Elevation level 2 — floating overlays that sit above a panel. */
+@utility glass-overlay {
+  background-color: rgb(40 42 49 / 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.4);
 }
 
 @utility glass-panel-active {
   border-color: rgb(59 130 246 / 0.3);
   box-shadow: 0 0 12px -2px rgb(173 198 255 / 0.2);
+}
+
+/* Hero numerals rendered as a subtle vertical gradient rather than flat
+   white — reads as lit from above, matching the glow language. */
+@utility counter-gradient {
+  background: linear-gradient(to bottom, #ffffff, #adc6ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .glass-panel-hover:hover {
+    transform: none;
+  }
 }

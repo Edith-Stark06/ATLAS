@@ -3,11 +3,28 @@ import { cn } from "@/lib/utils";
 export function Panel({
   className,
   children,
+  /** Staggers the entrance animation, in ms. */
+  delay,
+  /** Set false for panels that should not lift on hover (e.g. a static shell). */
+  interactive = true,
 }: {
   className?: string;
   children: React.ReactNode;
+  delay?: number;
+  interactive?: boolean;
 }) {
-  return <section className={cn("glass-panel rounded-xl", className)}>{children}</section>;
+  return (
+    <section
+      className={cn(
+        "glass-panel animate-fade-in-up rounded-xl",
+        interactive && "glass-panel-hover",
+        className,
+      )}
+      style={delay ? { animationDelay: `${delay}ms` } : undefined}
+    >
+      {children}
+    </section>
+  );
 }
 
 export function PanelHeader({
