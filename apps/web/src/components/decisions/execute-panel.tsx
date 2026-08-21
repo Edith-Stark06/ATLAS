@@ -7,7 +7,7 @@ import { CircleCheck, CircleSlash, Play, TriangleAlert } from "lucide-react";
 
 import { OutcomeBadge } from "@/components/ui/outcome-badge";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
-import { executeDecision } from "@/lib/api";
+import { executeDecision } from "@/lib/api-client";
 import type { Agent, ExecuteDecisionResponse } from "@/lib/types";
 import { formatUsd } from "@/lib/utils";
 

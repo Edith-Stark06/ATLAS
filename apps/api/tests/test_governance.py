@@ -6,20 +6,6 @@ module skips rather than failing, so `pytest` stays meaningful on a machine
 with no Docker running.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        health = c.get("/api/v1/health").json()
-        if health["status"] != "healthy":
-            pytest.skip("database unavailable — start it with `npm run db:up`")
-        yield c
-
 
 def test_agents_are_listed_by_descending_trust(client):
     agents = client.get("/api/v1/agents").json()

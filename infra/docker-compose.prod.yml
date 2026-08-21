@@ -1,0 +1,97 @@
+# Full ATLAS stack. Run from the repository root so the build contexts resolve:
+#
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env up --build
+#
+# Unlike docker-compose.yml (data services only, for local development), this
+# builds and runs the API and web app too.
+name: atlas-prod
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?set POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}"
+      POSTGRES_DB: ${POSTGRES_DB:-atlas}
+    # No published port: only the API needs the database, and exposing it on
+    # the host is the difference between one reachable service and two.
+    volumes:
+      - atlas_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-atlas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - atlas_prod_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Migrations run as a separate one-shot service rather than on API startup.
+  # With more than one API replica, startup migrations race each other; this
+  # runs exactly once and the API waits for it to succeed.
+  migrate:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-atlas}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET - generate one with openssl rand -hex 32}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-atlas}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      # Settings refuses to start outside development if these are still the
+      # documented defaults — see app/core/config.py.
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET - generate one with openssl rand -hex 32}"
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@atlas.local}
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD}"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      API_RELOAD: "false"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Internal service name: browser-side calls go through the web server's
+      # own /api/atlas proxy, so the API never needs to be browser-reachable.
+      ATLAS_API_URL: http://api:8000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  atlas_prod_pgdata:
+  atlas_prod_redisdata:

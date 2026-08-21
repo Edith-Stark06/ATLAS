@@ -256,6 +256,8 @@ Each committed decision therefore appends one record binding together, in a
 single hash preimage:
 
 - the inputs **as resolved** (defaults substituted, not the caller's nulls);
+- the authenticated actor that committed the decision, distinguished by
+  credential type (human operator versus machine credential);
 - the identifier *and version string* of every governance rule evaluated,
   with its match result and effect;
 - a SHA-256 fingerprint computed over the trained model artifacts
@@ -355,7 +357,11 @@ requested by an autonomous software agent, comprising:
 9. computing a cryptographic hash of the record of (8) over a canonical
    serialisation of the record together with the hash of the immediately
    preceding record, such that modification of any previously recorded
-   decision is detectable by recomputation.
+   decision is detectable by recomputation; and
+10. binding, within the hashed record of (9), an identifier of the
+    authenticated principal that authorised the action, distinguished by
+    credential type, such that the attribution of a recorded decision is no
+    more alterable than its outcome.
 
 Dependent elements worth capturing separately: the fallback behaviour of
 (2) when no trained model is available (deterministic heuristic
@@ -363,9 +369,11 @@ substitution, §4.2); the graceful transition mechanism of §5.5; the
 multi-class outcome-probability prediction of §5.3 as a second, coupled
 application of the same trained-model-gates-execution pattern; writing the
 decision of (6) and the record of (8) within a single atomic transaction, so
-no executed decision can lack an audit record; and rejecting a repeated
+no executed decision can lack an audit record; rejecting a repeated
 external transaction reference rather than recording a second decision for
-one event (§5.7).
+one event (§5.7); and restricting a machine credential to acting for a single
+named agent, so that a compromised credential cannot commit decisions
+attributed to another agent.
 
 ## 8. Implementation Notes for the Record
 

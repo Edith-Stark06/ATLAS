@@ -9,21 +9,10 @@ Skips when Postgres is unreachable; see tests/test_governance.py.
 """
 
 import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
 
 #: Seeded agent with a travel capability — the sanctions rule blocks its
 #: high-risk actions, which is what makes the policy override observable.
 TRAVEL_AGENT = "agt-travel-01"
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        if c.get("/api/v1/health").json()["status"] != "healthy":
-            pytest.skip("database unavailable — start it with `npm run db:up`")
-        yield c
 
 
 def run(client, **overrides):

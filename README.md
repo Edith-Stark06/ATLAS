@@ -101,6 +101,10 @@ is scored by the trained model instead of the heuristic:
 cd apps/api && .venv/Scripts/python.exe -m app.seed --reset
 ```
 
+This also creates the first admin account — `admin@atlas.local` /
+`atlas-dev-admin` by default — but only when no users exist yet. `--reset`
+reloads the governance dataset and deliberately leaves credentials alone.
+
 API on <http://localhost:8000>, interactive docs at `/docs`.
 
 ### 3. Web
@@ -132,6 +136,7 @@ The marketing page owns `/`; the console lives under `/console`.
 | Route | Screen | Source |
 | --- | --- | --- |
 | `/` | Landing page — hero, governance pipeline, capabilities | built in Next.js |
+| `/login` | Sign in | built in Next.js |
 | `/console` | Control Center dashboard | `atlas-control-center` |
 | `/console/agents` | AI Agent Registry | `ai-agent-registry` |
 | `/console/policies` | Policy Governance + rule builder | `policy-governance` |
@@ -158,9 +163,17 @@ The landing page is fully static and needs no backend at all.
 All responses are camelCase, so `apps/web/src/lib/types.ts` consumes them with
 no mapping layer.
 
-| Endpoint | Returns |
-| --- | --- |
-| `GET /api/v1/health` | Service + dependency health |
+Everything except `/health` and `/auth/login` requires an
+`Authorization: Bearer <credential>` header.
+
+| Endpoint | Returns | Role |
+| --- | --- | --- |
+| `GET /api/v1/health` | Service + dependency health | — |
+| `POST /api/v1/auth/login` | Exchange email + password for an access token | — |
+| `GET /api/v1/auth/me` | Who the presented credential belongs to | any |
+| `GET`·`POST /api/v1/auth/users` | List / create console accounts | admin |
+| `GET`·`POST /api/v1/auth/api-keys` | List / mint service credentials | admin |
+| `DELETE /api/v1/auth/api-keys/{id}` | Revoke a key (deactivates, never deletes) | admin |
 | `GET /api/v1/dashboard` | Aggregated metrics, composite trust, pipeline, activity |
 | `GET /api/v1/agents` · `/{id}` | Agent registry with trust factors |
 | `GET /api/v1/decisions` · `/{id}` | Decisions with policy evidence and investigation |
@@ -398,6 +411,94 @@ and writes the next entry, so concurrent appends can fork the chain. Single
 -writer development is fine; a busy deployment needs a serialisable
 transaction or an advisory lock on the head.
 
+## Authentication & Roles
+
+Everything except `/health` and `/auth/login` requires credentials. Two kinds
+resolve to the same internal `Actor`, so a human operator and a service key
+are treated identically by every permission check and every audit record —
+the distinction is preserved *in* the actor, not scattered through call sites.
+
+| Credential | For | Hashing |
+| --- | --- | --- |
+| Email + password → JWT | Console operators | **Argon2id** (slow, memory-hard) |
+| `atlas_sk_…` API key | Agents and services | **SHA-256** (fast) |
+
+The different hashing is deliberate. A password is low-entropy and
+human-chosen, so a stolen table is only as safe as the cost of guessing each
+candidate. An API key is 256 bits of `secrets` randomness — brute force is
+already impossible, and a slow hash would add latency to every request an
+agent makes without buying anything.
+
+### Roles
+
+| Role | Can |
+| --- | --- |
+| `viewer` | Read governance data; run what-if simulations |
+| `operator` | …plus commit decisions, recompute trust, rebuild simulations |
+| `admin` | …plus author policy versions and manage credentials |
+
+Deliberately coarse. Fine-grained permissions invite a matrix nobody can
+reason about, and the question this system must answer at review time is
+"who could have committed this decision?" — which needs an answer short
+enough to fit in a sentence.
+
+- **The role is re-read per request**, never trusted from the token claim. A
+  token minted before a demotion must not keep working at the old level.
+- **Agent-bound keys.** A key may be pinned to one agent; it then cannot
+  commit decisions in any other agent's name, so a compromised credential is
+  limited to that agent's blast radius.
+- **Keys are revoked, not deleted.** Their prefix appears as the actor behind
+  past decisions, and erasing the row would leave audit records naming a
+  credential nobody can identify.
+- **Login answers identically** for an unknown account and a wrong password,
+  and hashes either way, so the form is not an account-enumeration oracle.
+- **Every decision records its actor** as `user:…` or `api_key:…`, inside the
+  ledger hash. "The system approved it" is not an answer anyone can act on.
+
+### In the console
+
+The token is held in an **httpOnly** cookie, so page scripts cannot read it
+and an XSS bug cannot exfiltrate a working credential. Client components
+therefore cannot call the API directly; they go through the app's own
+`/api/atlas/…` route, which attaches the token server-side. That is the trade:
+one extra hop for a token JavaScript never touches.
+
+`src/proxy.ts` (Next 16's renamed `middleware`) redirects unauthenticated
+navigation to `/login`. It is **not** the security boundary — the presence of
+a cookie proves nothing. Every request still carries the token to the API,
+which validates it and enforces the role.
+
+The first admin is created by `python -m app.seed`, and only when no users
+exist at all. Once any account exists an operator has taken ownership, and
+silently re-creating a known default admin underneath them would be a
+backdoor.
+
+---
+
+## Deployment
+
+```bash
+cp .env.example .env
+# set JWT_SECRET (openssl rand -hex 32) and BOOTSTRAP_ADMIN_PASSWORD
+docker compose -f infra/docker-compose.prod.yml --env-file .env up --build
+```
+
+- **The API refuses to start** outside `development` while `JWT_SECRET` or
+  `BOOTSTRAP_ADMIN_PASSWORD` is still the documented default, or the secret is
+  under 32 characters. A misconfigured deployment that boots and looks healthy
+  is discovered by an attacker; one that refuses to start is discovered by
+  whoever ran the deploy.
+- **Migrations run as a one-shot service**, not on API startup: with more than
+  one replica, startup migrations race each other. The API waits for it to
+  complete successfully.
+- **Postgres publishes no host port.** Only the API needs it.
+- **The API needs no browser-reachable URL either.** Browser traffic goes
+  through the web server's proxy route, so the web container reaches the API
+  at `http://api:8000` over the internal network.
+- **Both images run as non-root** and carry a healthcheck. The API's probes
+  `/api/v1/health`, so it is only "healthy" once Postgres is actually
+  reachable — not merely once the process is listening.
+
 ---
 
 ## Build phases
@@ -412,4 +513,4 @@ transaction or an advisory lock on the head.
 | 5 | Policy Brain — versioned rules, evaluation, pre-deploy simulation | ✅ |
 | 6 | Simulation Engine — pre-execution outcome prediction | ✅ |
 | 7 | Decision pipeline & governance ledger — hash-chained audit records | ✅ |
-| 8 | Auth, seed data, deployment | |
+| 8 | Auth, roles, actor attribution, containerised deployment | ✅ |

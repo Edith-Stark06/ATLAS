@@ -1,0 +1,33 @@
+# Keeping the build context small matters here: the repo carries design
+# exports and ML artifacts that no image needs.
+
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.github
+
+# Python
+.venv
+**/.venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+**/.pytest_cache
+.ruff_cache
+
+# Secrets must never reach a layer — an image is trivially inspectable, and a
+# leaked JWT signing key means anyone can mint an admin token.
+.env
+.env.*
+!.env.example
+
+# Large source material that is not part of either app.
+stitch_export
+docs
+
+# Local scratch
+*.log
+.DS_Store

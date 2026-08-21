@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import RequireOperator
 from app.core.database import get_db
 from app.schemas.simulation import (
     PolicyTraceRead,
@@ -83,7 +84,12 @@ async def run_simulation(
     )
 
 
-@router.post("/rebuild", response_model=RebuildResponse)
+@router.post(
+    "/rebuild",
+    response_model=RebuildResponse,
+    # Deletes and regenerates every stored run.
+    dependencies=[RequireOperator],
+)
 async def rebuild(db: AsyncSession = Depends(get_db)) -> RebuildResponse:
     """Regenerate every stored simulation from the current engine.
 

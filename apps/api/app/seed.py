@@ -14,7 +14,9 @@ from decimal import Decimal
 
 from sqlalchemy import delete, update
 
+from app.core import security
 from app.core.compat import configure_event_loop
+from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.ml import models as ml_models
 from app.models import (
@@ -28,14 +30,16 @@ from app.models import (
     Policy,
     PolicyCheck,
     PolicyVersion,
+    Role,
     Severity,
     SimulationOutcome,
     SimulationRun,
     TrustFactor,
     TrustSnapshot,
+    User,
 )
 from app.seed_policy_rules import POLICY_RULES
-from app.services import policy_engine, trust_service
+from app.services import auth_service, policy_engine, trust_service
 
 
 def _dt(iso: str) -> datetime:
@@ -837,6 +841,36 @@ def build_trust_history(
     return snapshots
 
 
+async def ensure_bootstrap_admin(session) -> str:
+    """Create the first admin account, if and only if no users exist.
+
+    A fresh deployment has to be reachable by someone, and the alternative to
+    a bootstrap account is a chicken-and-egg problem where creating the first
+    admin requires being an admin.
+
+    Guarded on the whole table rather than on this one email: once any account
+    exists, an operator has taken ownership, and silently re-creating a known
+    default admin underneath them would be a backdoor. `Settings` separately
+    refuses to start outside development while the password is still the
+    documented default.
+    """
+    settings = get_settings()
+
+    if await auth_service.count_users(session) > 0:
+        return "users already exist — bootstrap admin not created"
+
+    session.add(
+        User(
+            email=settings.bootstrap_admin_email.strip().lower(),
+            name="ATLAS Administrator",
+            password_hash=security.hash_password(settings.bootstrap_admin_password),
+            role=Role.ADMIN,
+        )
+    )
+    await session.commit()
+    return f"bootstrap admin created: {settings.bootstrap_admin_email}"
+
+
 async def seed(reset: bool = False) -> None:
     now = datetime.now(UTC)
 
@@ -859,10 +893,14 @@ async def seed(reset: bool = False) -> None:
                 Policy,
                 ActivityItem,
                 # The ledger is append-only in the application, but --reset is
-                # a development wipe of the whole database, not a business
+                # a development wipe of the governance dataset, not a business
                 # operation. Leaving it would keep a chain whose entries
                 # reference decisions that no longer exist.
                 LedgerEntry,
+                # Users and API keys are deliberately NOT reset. They are
+                # credentials, not governance data, and silently deleting a
+                # colleague's admin account on a shared dev database to reload
+                # sample agents is a surprise nobody wants.
             ):
                 await session.execute(delete(model))
             await session.commit()
@@ -907,6 +945,8 @@ async def seed(reset: bool = False) -> None:
         # from the seeded factors and decisions — not the hand-written value.
         evaluated = await trust_service.recompute_all(session, reason="seed-recompute", now=now)
 
+        bootstrap_note = await ensure_bootstrap_admin(session)
+
     print(
         "Seeded: 6 agents, 9 policies (with rule versions), 6 decisions, "
         "3 simulations, 6 activity items, "
@@ -915,6 +955,7 @@ async def seed(reset: bool = False) -> None:
     for agent, evaluation in evaluated:
         drift = " (drift)" if evaluation.drift.detected else ""
         print(f"  {agent.id:<18} {evaluation.score:>3}  {evaluation.lifecycle.value}{drift}")
+    print(f"  {bootstrap_note}")
 
 
 def main() -> None:

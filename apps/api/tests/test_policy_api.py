@@ -3,11 +3,6 @@
 Skips when Postgres is unreachable; see tests/test_governance.py.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
 LOW_TRUST_HIGH_VALUE = {
     "conditions": [
         {"field": "trust_score", "operator": "lt", "value": 70},
@@ -17,14 +12,6 @@ LOW_TRUST_HIGH_VALUE = {
     "effect": "require_human_review",
     "applies_to": [],
 }
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        if c.get("/api/v1/health").json()["status"] != "healthy":
-            pytest.skip("database unavailable — start it with `npm run db:up`")
-        yield c
 
 
 # --- vocabulary -------------------------------------------------------------

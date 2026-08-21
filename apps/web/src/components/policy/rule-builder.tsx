@@ -5,7 +5,7 @@ import { FlaskConical, Plus, Trash2, TriangleAlert } from "lucide-react";
 
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
-import { simulatePolicyRule } from "@/lib/api";
+import { simulatePolicyRule } from "@/lib/api-client";
 import type {
   PolicyRule,
   RuleCondition,
