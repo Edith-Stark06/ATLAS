@@ -154,6 +154,11 @@ no mapping layer.
 | `POST /api/v1/trust/recompute` | Re-evaluate every agent and snapshot the result |
 | `GET /api/v1/trust/model-info` | Trained model provenance and baseline-vs-learned metrics |
 | `POST /api/v1/trust/simulate` | Score a hypothetical decision with the trained outcome classifier |
+| `GET /api/v1/policy/vocabulary` | Fields, operators and effects a rule may use |
+| `GET /api/v1/policy/policies` · `/{id}` | Policies with their active rule and version history |
+| `POST /api/v1/policy/policies/{id}/versions` | Append an immutable rule version |
+| `POST /api/v1/policy/evaluate` | Run the active policy set against a hypothetical decision |
+| `POST /api/v1/policy/simulate` | Replay a candidate rule over recorded decisions |
 
 ## Trust Engine
 
@@ -231,6 +236,43 @@ canonical source for the numbers in the table above.
   Phase 2 returned `null` unconditionally because that history didn't exist
   yet; Phase 3 introduced `trust_snapshots`, which is what made this real.
 
+## Policy Brain
+
+Rules are **data, not code** — a list of conditions over a closed field
+vocabulary, combined with `all`/`any`, producing an effect:
+
+```
+IF Trust Score < 70 AND Amount (USD) > 5000
+THEN require human review
+Applies to: all agents
+```
+
+That representation is what makes rules storable, versionable, diffable, and
+simulatable — none of which is possible if a policy is a hand-written branch.
+
+- **Closed vocabulary.** A rule may only reference the fields in
+  `EVALUABLE_FIELDS` (`app/services/policy_engine.py`). No arbitrary
+  attribute access, and the authoring UI builds its pickers from
+  `GET /policy/vocabulary` so it cannot drift from what the engine accepts.
+- **Immutable versions.** Editing a policy appends a `policy_versions` row
+  and repoints `policies.active_version_id`. A decision recorded months ago
+  stays explainable against the exact rule text that produced it.
+- **Most restrictive wins.** When several policies match, `block` beats
+  `require_human_review` beats `allow` — a permissive rule can never
+  silently override a block.
+- **No match means allow.** Policies restrict an otherwise-permitted action.
+  Defaulting to `block` would mean an empty policy set halts the estate,
+  which is not a safe failure mode for rules edited live.
+- **Missing values are "unevaluable", not "false".** A card freeze has no
+  amount, so an amount-threshold condition is reported as skipped with a
+  reason. Conflating "we could not tell" with "we checked and it passed"
+  would make the audit trail misleading.
+- **Simulate before deploy.** `POST /policy/simulate` replays a candidate
+  rule over recorded decisions and reports what it catches. It evaluates the
+  rule *alone*, so a decision it misses falls through to `allow` even when
+  other policies still restrict it — the console labels that a coverage gap,
+  not an outcome reversal.
+
 ---
 
 ## Build phases
@@ -242,7 +284,7 @@ canonical source for the numbers in the table above.
 | 2 | Data model & API — core entities, migrations, live console | ✅ |
 | 3 | Trust Engine — scoring, history, drift, lifecycle, forecasting | ✅ |
 | 4 | ML Trust Engine — trained models replacing every Phase 3 heuristic | ✅ |
-| 5 | Policy Brain — policy authoring + evaluation | |
+| 5 | Policy Brain — versioned rules, evaluation, pre-deploy simulation | ✅ |
 | 6 | Simulation Engine — pre-execution outcome prediction | |
 | 7 | Decision pipeline & governance ledger | |
 | 8 | Auth, seed data, deployment | |
