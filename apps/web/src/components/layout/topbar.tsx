@@ -1,14 +1,14 @@
 import { Bell, UserRound } from "lucide-react";
 
 const ENVIRONMENT_FLAGS = [
-  { label: "Production", tone: "text-secondary", dot: "bg-secondary", strong: true },
-  { label: "Compliant", tone: "text-on-surface-variant", dot: "bg-tertiary", strong: false },
-  { label: "Healthy", tone: "text-on-surface-variant", dot: "bg-tertiary", strong: false },
+  { label: "Production", tone: "text-cyan-glow", dot: "bg-cyan-glow", strong: true },
+  { label: "Compliant", tone: "text-on-surface-variant", dot: "bg-tertiary-green", strong: false },
+  { label: "Healthy", tone: "text-on-surface-variant", dot: "bg-tertiary-green", strong: false },
 ];
 
 export function Topbar() {
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-white/10 bg-surface-container-low/60 px-gutter shadow-sm backdrop-blur-md">
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-white/5 bg-surface-container-low/50 px-gutter shadow-sm backdrop-blur-md">
       <div className="flex items-center gap-4">
         <span className="text-headline-sm font-bold text-on-surface">ATLAS Enterprise</span>
         <span className="h-4 w-px bg-outline-variant/50" />
