@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    #: Auto-reload on source changes. Off by default despite being a dev
+    #: convenience: uvicorn's reloader runs the app in a spawned child, and if
+    #: the supervisor is killed abruptly that child is orphaned — it keeps
+    #: holding the port and serving the code it started with, which looks
+    #: exactly like "my changes aren't taking effect". Opt in with
+    #: API_RELOAD=true when you want it.
+    #:
+    #: Safe to toggle either way: the Windows event loop is chosen explicitly in
+    #: app/__main__.py, so it no longer depends on whether reload forks.
+    api_reload: bool = False
+
     # Comma-separated list in the environment, e.g. "http://localhost:3000,http://localhost:3001"
     cors_origins: str = "http://localhost:3000"
 

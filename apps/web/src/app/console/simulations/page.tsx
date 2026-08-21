@@ -1,13 +1,14 @@
-import { BadgeCheck, FlaskConical, Inbox, RefreshCw, TriangleAlert } from "lucide-react";
+import { BadgeCheck, FlaskConical, Inbox, TriangleAlert } from "lucide-react";
 
+import { ScenarioWorkspace } from "@/components/simulation/scenario-workspace";
 import { trustColor } from "@/components/ui/lifecycle-badge";
 import { OutcomeBadge, riskColor } from "@/components/ui/outcome-badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
+import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Pipeline } from "@/components/ui/pipeline";
 import { StatusChip } from "@/components/ui/status-chip";
 import { ApiError } from "@/components/ui/api-error";
-import { fetchSimulations, tryFetch } from "@/lib/api";
+import { fetchAgents, fetchSimulations, tryFetch } from "@/lib/api";
 import type { SimulationOutcome } from "@/lib/types";
 import { cn, formatPercent, formatTime, formatUsd } from "@/lib/utils";
 
@@ -110,7 +111,16 @@ function ScenarioCard({ outcome, index }: { outcome: SimulationOutcome; index: n
 }
 
 export default async function SimulationsPage() {
-  const result = await tryFetch(fetchSimulations);
+  const [result, agentsResult] = await Promise.all([
+    tryFetch(fetchSimulations),
+    tryFetch(fetchAgents),
+  ]);
+
+  const workspace = agentsResult.ok && agentsResult.data.length > 0 && (
+    <section className="mb-stack-md">
+      <ScenarioWorkspace agents={agentsResult.data} />
+    </section>
+  );
 
   if (!result.ok || result.data.length === 0) {
     return (
@@ -120,6 +130,7 @@ export default async function SimulationsPage() {
           highlight="Engine"
           description="Every autonomous financial decision is simulated before execution to predict downstream consequences."
         />
+        {workspace}
         <ApiError error={result.ok ? "No simulation runs recorded yet." : result.error} />
       </>
     );
@@ -141,12 +152,11 @@ export default async function SimulationsPage() {
         title="Simulation"
         highlight="Engine"
         description="Every autonomous financial decision is simulated before execution to predict downstream consequences."
-        action={
-          <GhostButton className="flex items-center gap-2">
-            <RefreshCw className="size-3.5" /> Refresh Model
-          </GhostButton>
-        }
       />
+
+      {workspace}
+
+      <h2 className="mb-4 text-headline-md text-on-surface">Last recorded run</h2>
 
       <Panel className="mb-stack-md">
         <PanelHeader
@@ -203,7 +213,9 @@ export default async function SimulationsPage() {
           <h2 className="text-headline-md text-on-surface">
             Predicting {active.outcomes.length === 3 ? "Three" : "Multiple"} Futures
           </h2>
-          <span className="font-mono text-label-mono text-outline">T = +10,000 steps</span>
+          <span className="font-mono text-label-mono text-outline">
+            Model-backed · {active.durationMs}ms
+          </span>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {active.outcomes.map((outcome, i) => (
