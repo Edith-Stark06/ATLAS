@@ -23,6 +23,7 @@ from app.models import (
     Agent,
     Decision,
     DecisionOutcome,
+    LedgerEntry,
     LifecycleState,
     Policy,
     PolicyCheck,
@@ -857,6 +858,11 @@ async def seed(reset: bool = False) -> None:
                 PolicyVersion,
                 Policy,
                 ActivityItem,
+                # The ledger is append-only in the application, but --reset is
+                # a development wipe of the whole database, not a business
+                # operation. Leaving it would keep a chain whose entries
+                # reference decisions that no longer exist.
+                LedgerEntry,
             ):
                 await session.execute(delete(model))
             await session.commit()
