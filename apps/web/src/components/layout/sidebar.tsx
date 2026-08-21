@@ -7,8 +7,14 @@ import { BrainCircuit } from "lucide-react";
 import { NAV_ITEMS, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
+/** The console root is a prefix of every other console route, so it only
+ * counts as active on an exact match — otherwise Control Center would light
+ * up on every page. Deeper routes still match their children, so
+ * /console/decisions/TRX-1 keeps Decision Intelligence highlighted. */
+const CONSOLE_ROOT = "/console";
+
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
+  if (href === CONSOLE_ROOT) return pathname === CONSOLE_ROOT;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

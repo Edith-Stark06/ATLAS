@@ -113,27 +113,32 @@ Web on <http://localhost:3000>.
 
 ---
 
-## Console routes
+## Routes
+
+The marketing page owns `/`; the console lives under `/console`.
 
 | Route | Screen | Source |
 | --- | --- | --- |
-| `/` | Control Center dashboard | `atlas-control-center` |
-| `/agents` | AI Agent Registry | `ai-agent-registry` |
-| `/policies` | Policy Governance | `policy-governance` |
-| `/decisions` | Decision Intelligence | `decision-intelligence-detail` |
-| `/decisions/[id]` | Decision Investigation | `decision-investigation` |
-| `/simulations` | Simulation Engine Workspace | `simulation-engine-workspace` |
-| `/status` | System health (Phase 0) | — |
+| `/` | Landing page — hero, governance pipeline, capabilities | built in Next.js |
+| `/console` | Control Center dashboard | `atlas-control-center` |
+| `/console/agents` | AI Agent Registry | `ai-agent-registry` |
+| `/console/policies` | Policy Governance + rule builder | `policy-governance` |
+| `/console/decisions` | Decision Intelligence | `decision-intelligence-detail` |
+| `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
+| `/console/simulations` | Simulation Engine Workspace | `simulation-engine-workspace` |
+| `/console/trust-engine` | Trust Engine | built in Next.js |
+| `/console/status` | System health | — |
 
-`/trust-engine`, `/explain`, `/ledger`, `/analytics`, `/alerts` and `/settings`
-appear in the nav and route to placeholders — they have no design yet and are
-marked "soon" in the sidebar.
+`/console/explain`, `/ledger`, `/analytics`, `/alerts` and `/settings` appear in
+the nav and route to placeholders — they have no design yet and are marked
+"soon" in the sidebar.
 
 The `executive-overview` export is ~90% identical to `atlas-control-center`
 (which supersedes it as "Refined"), so it is not built as a separate route.
 
 Every data-backed screen reads live from the API. If the backend is down the
 route renders an explicit "Backend unavailable" panel rather than crashing.
+The landing page is fully static and needs no backend at all.
 
 ## API
 

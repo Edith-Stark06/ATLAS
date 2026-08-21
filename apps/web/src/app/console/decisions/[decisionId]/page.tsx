@@ -60,7 +60,7 @@ export default async function DecisionInvestigationPage({
   return (
     <>
       <Link
-        href="/decisions"
+        href="/console/decisions"
         className="mb-4 inline-flex items-center gap-2 font-mono text-label-mono text-on-surface-variant transition-colors hover:text-primary"
       >
         <ArrowLeft className="size-4" />
