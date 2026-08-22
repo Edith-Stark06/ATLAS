@@ -144,11 +144,12 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
 | `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
 | `/console/explain` | Explain AI — drivers, rule evidence, counterfactuals | built in Next.js |
+| `/console/analytics` | Governance Analytics — trends, latency, policy hot spots | built in Next.js |
 | `/console/ledger` | Governance Ledger — chain integrity + audit records | built in Next.js |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
 | `/console/status` | System health | — |
 
-`/console/analytics`, `/alerts` and `/settings` appear in the nav and route to
+`/console/alerts` and `/console/settings` appear in the nav and route to
 placeholders — they have no design yet and are marked "soon" in the sidebar.
 
 The `executive-overview` export is ~90% identical to `atlas-control-center`
@@ -198,6 +199,7 @@ Everything except `/health` and `/auth/login` requires an
 | `GET /api/v1/ledger/stats` | Chain head, counts by kind, model fingerprint |
 | `GET /api/v1/ledger/{seq}` | One audit record with its pinned evidence |
 | `GET /api/v1/explain/decisions/{id}` | Why a decision came out as it did, and what would change it |
+| `GET /api/v1/analytics` | Aggregate trends over a rolling window (`days`) |
 
 ## Trust Engine
 
@@ -537,6 +539,45 @@ makes an explanation actionable rather than merely descriptive:
   flagged in the response and in the UI rather than passed off as the
   attribution at decision time.
 
+## Governance Analytics
+
+`GET /analytics?days=N` aggregates recorded activity over a rolling window.
+Computed per request rather than from a maintained rollup: a governance
+dashboard whose numbers can drift from the decisions they describe is worse
+than no dashboard.
+
+Two choices run through the whole module, because aggregate views are where
+quiet lies live:
+
+- **Percentiles, not means.** ATLAS sits in the critical path of an action
+  about to happen, so what matters is what the slowest requests cost. On the
+  current seed the mean is 109ms and p99 is 1913ms — reporting the average
+  alone would hide an 8× tail. Percentiles are **nearest-rank**, so every
+  figure is a request that actually happened; an interpolated p99 nobody ever
+  measured is a worse answer for a latency budget than a real one.
+- **Rates carry their denominator.** "8% violation rate" over 12 decisions is
+  noise; over 12,000 it is a finding. Every rate travels with its sample size,
+  in the API and on screen, so the two cannot be confused.
+
+Other deliberate details:
+
+- **Quiet days are rendered, not skipped.** A chart that drops silent days
+  compresses the axis and makes a two-week lull look like continuous traffic.
+- **Empty buckets are still reported.** "No agents are restricted" must not
+  look identical to "that band does not exist".
+- **A rate over nothing is 0%, not 100%.** `0/0` is a real state for a fresh
+  estate, and rendering it as full compliance — or full violation — is worse
+  than rendering nothing.
+- **Dead rules are flagged, but only once tested.** A policy evaluated many
+  times that has never matched is mis-scoped or redundant, which is
+  actionable. A policy added yesterday has not had a chance to fire, so it is
+  not labelled until it has been evaluated enough times to mean something.
+- **Actions without an amount are excluded from exposure.** A card freeze is
+  a governed action carrying no money; treating its absent amount as zero
+  would drag the totals down.
+- **The window is applied in SQL.** Pulling every decision ever recorded to
+  count last week's works fine on seed data and falls over on a real estate.
+
 ---
 
 ## Build phases
@@ -553,3 +594,4 @@ makes an explanation actionable rather than merely descriptive:
 | 7 | Decision pipeline & governance ledger — hash-chained audit records | ✅ |
 | 8 | Auth, roles, actor attribution, containerised deployment | ✅ |
 | 9 | Explain AI — drivers, rule evidence, verified counterfactuals | ✅ |
+| 10 | Governance Analytics — trends, latency percentiles, policy hot spots | ✅ |

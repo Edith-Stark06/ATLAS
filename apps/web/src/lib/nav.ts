@@ -34,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Simulation Engine", href: "/console/simulations", icon: FlaskConical, built: true },
   { label: "Explain AI", href: "/console/explain", icon: Lightbulb, built: true },
   { label: "Governance Ledger", href: "/console/ledger", icon: ScrollText, built: true },
-  { label: "Analytics", href: "/console/analytics", icon: BarChart3, built: false },
+  { label: "Analytics", href: "/console/analytics", icon: BarChart3, built: true },
   { label: "Alerts", href: "/console/alerts", icon: Bell, built: false },
 ];
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import RequireOperator, RequireViewer
 from app.api.routes import (
+    analytics,
     auth,
     dashboard,
     explain,
@@ -33,6 +34,7 @@ api_router.include_router(ledger.decisions_router, dependencies=[RequireOperator
 # Individual write endpoints inside these routers raise the bar themselves.
 api_router.include_router(governance.router, dependencies=[RequireViewer])
 api_router.include_router(explain.router, dependencies=[RequireViewer])
+api_router.include_router(analytics.router, dependencies=[RequireViewer])
 api_router.include_router(dashboard.router, dependencies=[RequireViewer])
 api_router.include_router(ledger.router, dependencies=[RequireViewer])
 api_router.include_router(policy.router, dependencies=[RequireViewer])
