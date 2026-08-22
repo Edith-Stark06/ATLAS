@@ -184,6 +184,34 @@ async def load_versions(db: AsyncSession, policy_id: str) -> list[PolicyVersion]
     return list(result.scalars().all())
 
 
+async def load_rule_version(db: AsyncSession, policy_id: str, version: str) -> Rule | None:
+    """The rule text of one specific version, parsed.
+
+    Explaining a past decision needs the rule *as it was*, not as it is now.
+    Versions are immutable, so this is exactly reproducible — which is the
+    reason the ledger pins a version string rather than a policy id alone.
+
+    Returns None when the version is unknown or no longer parses, so a caller
+    reports a gap in the evidence rather than substituting current rule text.
+    """
+    row = (
+        await db.execute(
+            select(PolicyVersion).where(
+                PolicyVersion.policy_id == policy_id,
+                PolicyVersion.version == version,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if row is None:
+        return None
+
+    try:
+        return policy_engine.parse_rule(row.rule)
+    except policy_engine.RuleValidationError:
+        return None
+
+
 # --- Simulation -------------------------------------------------------------
 
 

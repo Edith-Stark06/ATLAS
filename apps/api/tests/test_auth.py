@@ -178,6 +178,18 @@ def test_an_unknown_account_gives_the_same_answer_as_a_wrong_password(api: TestC
 # --- what is reachable without credentials -----------------------------------
 
 
+def test_the_anonymous_fixture_really_is_anonymous(api: TestClient, client: TestClient):
+    """Guards the tests below rather than the app.
+
+    An earlier version of the fixtures set the auth header on the shared
+    client, so `api` silently became authenticated once `client` had been
+    used — and every "rejects anonymous callers" assertion started passing
+    for the wrong reason, depending on test ordering.
+    """
+    assert "Authorization" not in api.headers
+    assert "Authorization" in client.headers
+
+
 def test_health_stays_open(api: TestClient):
     """A load balancer polls this before it has any credential to present."""
     assert api.get("/api/v1/health").status_code == 200

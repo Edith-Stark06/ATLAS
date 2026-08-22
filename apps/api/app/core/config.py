@@ -4,8 +4,15 @@ from pathlib import Path
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Repo root — apps/api/app/core/config.py -> up 4 levels
-REPO_ROOT = Path(__file__).resolve().parents[4]
+_HERE = Path(__file__).resolve()
+
+# Repo root — apps/api/app/core/config.py, so four levels up *when the repo
+# layout is there*. In a container the package is copied to /app and those
+# levels do not exist; indexing blindly raised IndexError at import time and
+# the image could not start at all. Config comes from the environment there,
+# so falling back to the working directory loses nothing.
+_REPO_ROOT_DEPTH = 4
+REPO_ROOT = _HERE.parents[_REPO_ROOT_DEPTH] if len(_HERE.parents) > _REPO_ROOT_DEPTH else Path.cwd()
 
 #: The development JWT secret. Named and checked rather than merely commented
 #: so shipping it is a startup failure, not a silent one — a signing key that

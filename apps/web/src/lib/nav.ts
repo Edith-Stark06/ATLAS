@@ -32,7 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Policy Brain", href: "/console/policies", icon: Scale, built: true },
   { label: "Decision Intelligence", href: "/console/decisions", icon: Workflow, built: true },
   { label: "Simulation Engine", href: "/console/simulations", icon: FlaskConical, built: true },
-  { label: "Explain AI", href: "/console/explain", icon: Lightbulb, built: false },
+  { label: "Explain AI", href: "/console/explain", icon: Lightbulb, built: true },
   { label: "Governance Ledger", href: "/console/ledger", icon: ScrollText, built: true },
   { label: "Analytics", href: "/console/analytics", icon: BarChart3, built: false },
   { label: "Alerts", href: "/console/alerts", icon: Bell, built: false },

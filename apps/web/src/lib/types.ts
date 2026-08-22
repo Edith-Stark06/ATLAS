@@ -415,6 +415,64 @@ export interface LedgerStats {
   modelFingerprint: string | null;
 }
 
+// --- Explain AI ---------------------------------------------------------------
+
+export interface Counterfactual {
+  field: string;
+  label: string;
+  current: number | null;
+  threshold: number;
+  /** "at most" or "at least" — how `threshold` should be read. */
+  direction: string;
+  changesTo: DecisionOutcome;
+  /** "policy" — arithmetic from a rule boundary — or "model", found by
+   * searching the classifier's response. */
+  source: "policy" | "model" | string;
+  /** True only for policy boundaries. */
+  exact: boolean;
+  detail: string;
+}
+
+export interface ExplanationDriver {
+  key: string;
+  label: string;
+  /** Signed SHAP contribution. Positive raises trust, negative lowers it. */
+  contribution: number;
+  value: number | null;
+}
+
+export interface ExplanationRule {
+  policyId: string;
+  policyName: string;
+  version: string;
+  matched: boolean;
+  inScope: boolean;
+  effect: RuleEffect | null;
+}
+
+export interface DecisionExplanation {
+  decisionId: string;
+  agentId: string;
+  agentName: string;
+  action: string;
+
+  outcome: DecisionOutcome;
+  headline: string;
+  /** "policy" when a rule was binding, "model" otherwise. */
+  decidedBy: string;
+  narrative: string[];
+
+  drivers: ExplanationDriver[];
+  /** True when drivers describe trust *today*, not at decision time. */
+  driversAreCurrent: boolean;
+
+  rules: ExplanationRule[];
+  counterfactuals: Counterfactual[];
+
+  ledgerSeq: number | null;
+  fromPinnedEvidence: boolean;
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {

@@ -283,6 +283,42 @@ This is deliberately characterised as tamper-*evident*. Tamper-*proofing*
 requires anchoring the chain head outside the operator's control and is not
 claimed here.
 
+### 5.8 Verified Counterfactual Generation (`app/services/explanation_engine.py`)
+
+A governance refusal that cannot be acted on is of limited operational value.
+The system therefore computes, for a restricted action, the minimal change to
+a single operator-controllable input that would produce a different verdict.
+
+Two derivations, kept distinct because their epistemic status differs:
+
+- **Rule-derived (exact).** For each matched ordered condition of a binding
+  rule, the boundary value is computed arithmetically from the operator and
+  threshold, stepped by the field's own granularity (integer fields by one,
+  monetary fields by one cent).
+- **Model-derived (searched).** Where the trained classifier rather than a
+  rule determined the outcome, the boundary is located by scanning the
+  feature's admissible range outward from its current value. Bisection is
+  specifically *not* used: the gradient-boosted classifier of §5.3 is not
+  monotonic in its inputs, and a binary search over a non-monotone response
+  converges on a boundary that does not exist. Scanning outward in both
+  directions also guarantees the *nearest* boundary is returned rather than
+  the first encountered in scan order.
+
+The step that distinguishes this from a per-rule sensitivity report: each
+candidate is **re-evaluated against the complete active policy set** before
+being offered, and retained only if the combined verdict actually changes.
+A boundary is computed per rule, but the verdict is a function of all of
+them — where two rules bind, satisfying one leaves the other in force, and
+the arithmetically-correct boundary for the first is operationally useless.
+The resulting outcome is reported as computed rather than assumed to be
+approval; clearing a blocking rule frequently leaves a human-review
+requirement in place.
+
+Counterfactual search is restricted to a closed set of operator-controllable
+fields. Fields describing the agent's governance state (lifecycle, capability)
+are excluded by construction, so the system cannot suggest that an operator
+alter the state being governed.
+
 ## 6. Technical Effect — Evaluation Results
 
 Produced by `python -m app.ml.train`, written verbatim to
@@ -361,7 +397,17 @@ requested by an autonomous software agent, comprising:
 10. binding, within the hashed record of (9), an identifier of the
     authenticated principal that authorised the action, distinguished by
     credential type, such that the attribution of a recorded decision is no
-    more alterable than its outcome.
+    more alterable than its outcome; and
+11. determining, for an action restricted at (6), a minimal modification to a
+    single one of a predetermined set of input values that would yield a
+    different determination, by (a) computing the modification arithmetically
+    from the threshold of a matched policy condition, or (b) where the
+    determination arose from the trained model, locating it by evaluating the
+    model across the admissible range of that input, and in either case
+    re-evaluating the modified input against the complete set of governance
+    policies and retaining the modification only where the resulting
+    determination differs, the differing determination being reported as
+    computed.
 
 Dependent elements worth capturing separately: the fallback behaviour of
 (2) when no trained model is available (deterministic heuristic
