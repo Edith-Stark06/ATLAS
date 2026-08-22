@@ -10,6 +10,7 @@ import type {
   DashboardData,
   Decision,
   DecisionExplanation,
+  GovernanceAnalytics,
   EvaluateRequest,
   EvaluateResponse,
   ExecuteDecisionRequest,
@@ -253,6 +254,13 @@ export const simulatePolicyRule = (rule: PolicyRule) =>
  */
 export const runSimulation = (request: SimulateActionRequest) =>
   apiPost<SimulateActionResponse>("/simulation/run", request, REQUEST_TIMEOUT_MS * 2);
+
+// --- Governance analytics ----------------------------------------------------
+
+/** Aggregate trends over a rolling window. Computed per request, never from
+ * a rollup that could drift from the decisions it summarises. */
+export const fetchAnalytics = (days = 30) =>
+  apiGet<GovernanceAnalytics>(`/analytics?days=${days}`);
 
 // --- Explain AI --------------------------------------------------------------
 

@@ -473,6 +473,86 @@ export interface DecisionExplanation {
   fromPinnedEvidence: boolean;
 }
 
+// --- Governance analytics -----------------------------------------------------
+
+/** A proportion that always travels with the sample it came from. */
+export interface AnalyticsRate {
+  count: number;
+  total: number;
+  percent: number;
+}
+
+export interface AnalyticsBucket {
+  label: string;
+  count: number;
+  /** 0–1 */
+  share: number;
+}
+
+export interface LatencyProfile {
+  samples: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  /** Alongside the percentiles, not instead — a mean far from p99 is itself
+   * the finding. */
+  mean: number;
+  max: number;
+}
+
+export interface AnalyticsDayPoint {
+  /** ISO date, YYYY-MM-DD */
+  day: string;
+  approved: number;
+  escalated: number;
+  blocked: number;
+  total: number;
+}
+
+export interface PolicyHotspot {
+  policyId: string;
+  policyName: string;
+  evaluations: number;
+  restrictions: number;
+  matchRate: AnalyticsRate;
+  /** Evaluated enough times to judge, and never once matched. */
+  neverFired: boolean;
+}
+
+export interface ReviewLoad {
+  escalated: number;
+  total: number;
+  rate: AnalyticsRate;
+  /** Escalations per day, for sizing review staffing. */
+  perDay: number;
+}
+
+export interface ExposureSummary {
+  movedUsd: number;
+  withheldUsd: number;
+  decisionsWithAmount: number;
+  /** 0–1 */
+  withheldShare: number;
+}
+
+export interface GovernanceAnalytics {
+  windowDays: number;
+  /** ISO-8601 */
+  generatedAt: string;
+
+  agents: number;
+  decisionsAllTime: number;
+  agentsWithoutDecisions: number;
+
+  trust: AnalyticsBucket[];
+  outcomes: AnalyticsBucket[];
+  series: AnalyticsDayPoint[];
+  hotspots: PolicyHotspot[];
+  latency: LatencyProfile;
+  review: ReviewLoad;
+  exposure: ExposureSummary;
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {
