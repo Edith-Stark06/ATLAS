@@ -9,6 +9,7 @@ import type {
   Agent,
   DashboardData,
   Decision,
+  DecisionExplanation,
   EvaluateRequest,
   EvaluateResponse,
   ExecuteDecisionRequest,
@@ -252,6 +253,12 @@ export const simulatePolicyRule = (rule: PolicyRule) =>
  */
 export const runSimulation = (request: SimulateActionRequest) =>
   apiPost<SimulateActionResponse>("/simulation/run", request, REQUEST_TIMEOUT_MS * 2);
+
+// --- Explain AI --------------------------------------------------------------
+
+/** Why a decision came out as it did, and what would have changed it. */
+export const fetchExplanation = (decisionId: string) =>
+  apiGet<DecisionExplanation>(`/explain/decisions/${encodeURIComponent(decisionId)}`);
 
 // --- Decision pipeline & governance ledger -----------------------------------
 

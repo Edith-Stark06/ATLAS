@@ -143,13 +143,13 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/decisions` | Decision Intelligence | `decision-intelligence-detail` |
 | `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
 | `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
+| `/console/explain` | Explain AI — drivers, rule evidence, counterfactuals | built in Next.js |
 | `/console/ledger` | Governance Ledger — chain integrity + audit records | built in Next.js |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
 | `/console/status` | System health | — |
 
-`/console/explain`, `/analytics`, `/alerts` and `/settings` appear in the nav
-and route to placeholders — they have no design yet and are marked "soon" in
-the sidebar.
+`/console/analytics`, `/alerts` and `/settings` appear in the nav and route to
+placeholders — they have no design yet and are marked "soon" in the sidebar.
 
 The `executive-overview` export is ~90% identical to `atlas-control-center`
 (which supersedes it as "Refined"), so it is not built as a separate route.
@@ -197,6 +197,7 @@ Everything except `/health` and `/auth/login` requires an
 | `GET /api/v1/ledger/verify` | Recompute every hash and check every link |
 | `GET /api/v1/ledger/stats` | Chain head, counts by kind, model fingerprint |
 | `GET /api/v1/ledger/{seq}` | One audit record with its pinned evidence |
+| `GET /api/v1/explain/decisions/{id}` | Why a decision came out as it did, and what would change it |
 
 ## Trust Engine
 
@@ -499,6 +500,43 @@ docker compose -f infra/docker-compose.prod.yml --env-file .env up --build
   `/api/v1/health`, so it is only "healthy" once Postgres is actually
   reachable — not merely once the process is listening.
 
+## Explain AI
+
+Three of the four things an explanation needs already existed: the trust
+model's SHAP attribution, the policy engine's per-condition results, and the
+pipeline's prose. `GET /explain/decisions/{id}` adds the fourth, which is what
+makes an explanation actionable rather than merely descriptive:
+
+> Blocked. Risk score 95 → at most 89 changes this to **escalated**.
+
+- **Reconstructed from pinned evidence, not current state.** The rule
+  *versions* and model fingerprint come from the ledger entry. Re-evaluating a
+  six-month-old decision against today's policy set would produce a coherent,
+  confident explanation of a decision the system never made.
+- **Policy boundaries are exact; model boundaries are searched.** A rule is
+  `risk_score > 90`, so the value that stops it matching is arithmetic. The
+  classifier has no such structure, so its boundary is found by scanning the
+  feature's real range — *not* by bisection, because gradient boosting is not
+  monotonic and a binary search over a non-monotone response returns a
+  plausible-looking boundary that is simply wrong. The two are labelled
+  differently in the response (`exact: true|false`) rather than blurred.
+- **Every suggestion is verified against the whole rule set.** A boundary is
+  computed per rule, but the verdict comes from all of them. With two rules
+  binding, "amount at most $2,000" can be exactly right about its own rule and
+  useless as advice, because the sanctions rule still blocks. Each candidate
+  is replayed and kept only if the combined outcome actually changes.
+- **The new outcome is reported, not assumed.** Clearing a block often leaves
+  a review requirement behind, so `changesTo` is frequently `escalated` rather
+  than `approved`. Saying "this would have been approved" when it would not is
+  the failure mode this avoids.
+- **Suggestions stay inside what an operator can act on.** Trust, risk and
+  amount are searchable; lifecycle state and capability are not. Telling
+  someone to change an agent's governance state is not advice.
+- **Drivers are labelled as current.** Per-factor SHAP attribution is not
+  snapshotted, so the drivers describe the agent's trust *today*. That is
+  flagged in the response and in the UI rather than passed off as the
+  attribution at decision time.
+
 ---
 
 ## Build phases
@@ -514,3 +552,4 @@ docker compose -f infra/docker-compose.prod.yml --env-file .env up --build
 | 6 | Simulation Engine — pre-execution outcome prediction | ✅ |
 | 7 | Decision pipeline & governance ledger — hash-chained audit records | ✅ |
 | 8 | Auth, roles, actor attribution, containerised deployment | ✅ |
+| 9 | Explain AI — drivers, rule evidence, verified counterfactuals | ✅ |
