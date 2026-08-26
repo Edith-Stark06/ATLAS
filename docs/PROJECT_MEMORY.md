@@ -1,0 +1,346 @@
+# ATLAS — Project Memory
+
+Complete context handoff. Written 2026-08-24 against commit `b7fec78`.
+
+Repo: https://github.com/Edith-Stark06/ATLAS · branch `main` · local path
+`D:\Documents\Projects\ATLAS`
+
+---
+
+## 1. What this is
+
+**ATLAS — Adaptive Trust & Lifecycle Assurance System.** A governance layer
+that decides whether autonomous financial agents can be trusted *before* they
+act.
+
+The distinction it exists to make:
+
+> Traditional governance asks *"is this agent authorized to perform this
+> action?"* ATLAS asks *"should this agent be trusted to perform this action,
+> **right now**, under **these** circumstances?"*
+
+Every action passes through a pre-execution pipeline:
+
+```
+Agent Request → Trust Engine → Policy Brain → Simulation Engine
+             → Governance Decision → Explain AI → Governance Ledger → Execution
+```
+
+It is also an **invention disclosure project** — `docs/patent/technical-disclosure.md`
+is maintained alongside the code as a filing-ready document for a patent
+agent. Design decisions are made and documented with that in mind.
+
+---
+
+## 2. Stack & layout
+
+| Layer | Technology |
+| --- | --- |
+| Web | Next.js **16** (App Router), React 19, TypeScript, Tailwind v4 |
+| API | FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, Alembic |
+| Data | PostgreSQL (container tag `postgres:16`), Redis 7 |
+| ML | scikit-learn, SHAP, joblib |
+| Auth | PyJWT (HS256) + argon2-cffi |
+| Design | Tokens exported from Stitch (`stitch_export/`) |
+
+```
+apps/
+  web/                    Next.js frontend
+    src/app/console/      the console (agents, policies, decisions, …)
+    src/lib/api.ts        SERVER-ONLY api client (reads session cookie)
+    src/lib/api-client.ts BROWSER api client (goes via /api/atlas proxy)
+    src/proxy.ts          Next 16's renamed "middleware"
+  api/
+    app/services/         engines (pure) + services (DB)
+    app/api/routes/       FastAPI routers
+    app/ml/               training + artifacts
+    alembic/versions/     5 migrations
+infra/
+  docker-compose.yml      Postgres + Redis (dev)
+  docker-compose.prod.yml full stack (api, web, migrate, db, redis)
+docs/patent/              invention disclosure
+stitch_export/            source design screens
+```
+
+**Architectural convention throughout:** `*_engine.py` is pure functions over
+plain values (no DB, no I/O, exhaustively unit-testable). `*_service.py` does
+the database work and calls the engine. Routes are thin.
+
+---
+
+## 3. Running it
+
+```bash
+cp .env.example .env
+npm run db:up                                            # Postgres :5433, Redis :6380
+cd apps/api && python -m venv .venv
+.venv/Scripts/python.exe -m pip install -e ".[dev]"
+.venv/Scripts/python.exe -m alembic upgrade head
+.venv/Scripts/python.exe -m app.ml.train                 # optional; heuristic fallback exists
+.venv/Scripts/python.exe -m app.seed --reset             # AFTER training
+.venv/Scripts/python.exe -m app                          # API on :8000
+npm run dev                                              # web on :3000
+```
+
+**Login:** `admin@atlas.local` / `atlas-dev-admin` (role `admin`).
+Created by the seeder **only when no users exist**. `--reset` reloads the
+governance dataset and deliberately leaves credentials alone.
+
+### Non-obvious operational facts
+
+- **Ports are 5433 / 6380**, not the defaults — deliberately, so ATLAS never
+  collides with another local project.
+- **Always `python -m app`, never bare `uvicorn`.** On Windows uvicorn picks a
+  `ProactorEventLoop` for a single-process server, and psycopg3's async driver
+  **cannot use it** — every query fails. `app/__main__.py` passes the loop
+  factory explicitly. Entrypoints reaching the DB via `asyncio.run` (alembic,
+  seeder, pytest) use the policy shim in `app/core/compat.py`.
+- **`API_RELOAD` is off by default.** The reloader's child can outlive an
+  abruptly killed parent and keep serving stale code from :8000 — looks
+  exactly like "my changes aren't taking effect".
+- **Docker Desktop on this machine starts stopped.** If Postgres is
+  unreachable, start Docker Desktop and wait ~15s.
+
+---
+
+## 4. Build phases — all complete
+
+| # | Phase | Commit |
+| --- | --- | --- |
+| 0 | Foundation — monorepo, design tokens, health check | `b11037a` |
+| 1 | Frontend shell — Stitch screens as React on typed mocks | `b11037a` |
+| 2 | Data model & API — entities, migrations, live console | `f4070fa` |
+| 3 | Trust Engine — scoring, history, drift, lifecycle, forecast | `cc0848d` |
+| 4 | ML Trust Engine — trained models replace every heuristic | `f7e7037` |
+| 5 | Policy Brain — versioned rules, evaluation, pre-deploy sim | `6651cbc` |
+| 6 | Simulation Engine — pre-execution outcome prediction | `82c25e6` |
+| 7 | Decision pipeline & governance ledger — hash chain | `1f692df` |
+| 8 | Auth, roles, actor attribution, containerised deploy | `f502c4d` |
+| 9 | Explain AI — drivers, rule evidence, counterfactuals | `1493b60` |
+| 10 | Governance Analytics — trends, latency, policy hot spots | `fb515ca` |
+| 11 | Agent Benchmark — cohort ranking, change attribution | `b7fec78` |
+
+Remaining console placeholders: **Alerts**, **Settings**.
+
+---
+
+## 5. The core subsystems
+
+### Trust Engine (`trust_engine.py`, `trust_service.py`)
+
+An agent's score is **computed, never stored as given**.
+
+```
+ML (primary):   score = 100 × P(next decision is compliant)   ← logistic regression
+heuristic:      score = weighted mean of factors − anomaly penalty
+```
+
+Five factors: `behavior` .22, `policy` .24, `risk` .20, `context` .14,
+`history` .20.
+
+- Label is **forward-looking** — "was the agent's *next* decision adverse" —
+  so the score predicts risk rather than describing the past.
+- Falls back to the heuristic when no artifact is present, with **no branch
+  visible to the caller**.
+- Anomaly window: **7 days**. Per-agent Isolation Forest for drift, fitted
+  only on the features the trust model itself found informative.
+
+Trained metrics (`app/ml/artifacts/metrics.json`, 320 agents × 60 steps):
+
+| Model | Baseline | Learned |
+| --- | --- | --- |
+| Trust (AUC) | 0.632 | **0.670** (+6.1%) |
+| Drift (F1) | 0.263 | **0.335** |
+| Simulation (accuracy) | 0.531 | **0.568** |
+| Simulation (log loss) | 1.005 | **0.946** |
+
+### Policy Brain (`policy_engine.py`, `policy_service.py`)
+
+Rules are **immutable versioned records**. Fields: `trust_score`,
+`risk_score`, `amount_usd`, `authority_level`, `agent_lifecycle`,
+`capability`, `hour_utc`. Effects: `allow` / `require_human_review` / `block`.
+
+- A missing value makes a condition **unevaluable, not false** — a card freeze
+  has no amount, and an amount-threshold rule must not fire on it.
+- `POST /policy/simulate` replays a *candidate* rule over recorded decisions
+  before deployment.
+
+### Simulation Engine (`simulation_engine.py`)
+
+- **Policy is a hard constraint; the model is advisory.** A blocking rule
+  overrides a confident model, always.
+- **Money follows the recommendation, not the probabilities.** A blocked
+  action's expected exposure is `0`, not `p(approve) × amount`.
+- Reports `withheld_usd` and `unconstrained_exposure_usd` so the value of
+  governance is visible rather than implied.
+
+### Decision Pipeline + Governance Ledger (`decision_service.py`, `ledger.py`)
+
+`POST /decisions/execute` is the committing path. Decision, policy checks,
+simulation and ledger entry are written in **one transaction** — a decision
+without an audit record is the failure the system exists to prevent.
+
+The ledger is a hash chain:
+
+```
+entry_hash = sha256(version ⧺ seq ⧺ prev_hash ⧺ kind ⧺ subject_id
+                    ⧺ recorded_at ⧺ canonical_json(payload))
+```
+
+- **Tamper-evident, not tamper-proof** — stated everywhere, including in the
+  UI. Anyone with DB access can edit a row; they cannot make it verify.
+- Canonical JSON: sorted keys, no whitespace, non-JSON types **rejected not
+  coerced**.
+- Money is a **fixed-point string** — hashing a float would make the record
+  depend on repr precision.
+- Pins the inputs *actually used*, the rule **versions** in force, a SHA-256
+  of the model artifacts, and the **actor**.
+- A replayed `decisionId` → **409**, not a second decision or a raw 500.
+- Known limit, documented: `append` reads the head then writes, so concurrent
+  appends can fork the chain. Needs a serialisable transaction or advisory
+  lock for multi-writer.
+
+### Auth (`security.py`, `auth_service.py`, `deps.py`)
+
+Two credential types → one internal `Actor`.
+
+| Credential | For | Hashing |
+| --- | --- | --- |
+| Password → JWT | Console operators | **Argon2id** (slow, memory-hard) |
+| `atlas_sk_…` key | Agents / services | **SHA-256** (fast) |
+
+The asymmetry is deliberate: passwords are low-entropy so each guess must be
+expensive; an API key is 256 bits of `secrets` randomness, so a slow hash
+would only add latency to every agent request.
+
+Roles: `viewer` → `operator` → `admin`. **Role is re-read per request**, never
+trusted from the token claim. JWT algorithms are **pinned** (blocks `alg:none`
+and HMAC/RSA confusion). Login answers identically for unknown account and
+wrong password. Keys are **revoked, not deleted** (their prefix names the
+actor in past audit records). An agent-bound key cannot act for another agent.
+
+Console: token in an **httpOnly cookie**, so page scripts cannot read it.
+Client components therefore go through `/api/atlas/[...path]`, which attaches
+the token server-side. `src/proxy.ts` redirects unauthenticated navigation but
+**is not the security boundary** — the API validates every request.
+
+### Explain AI (`explanation_engine.py`)
+
+Reconstructed from the ledger's **pinned evidence**, not current state.
+Re-evaluating an old decision against today's rules would produce a confident
+explanation of a decision that never happened.
+
+- **Policy boundaries are exact** (arithmetic from the rule threshold).
+- **Model boundaries are searched** — scanning the feature's real range, *not*
+  bisecting, because gradient boosting is non-monotonic and a binary search
+  returns a plausible boundary that does not exist.
+- **Every suggestion is replayed against the whole rule set** and kept only if
+  the combined verdict changes. Found by looking at the rendered page: with
+  two rules binding, "amount ≤ $2,000" was exactly right about its own rule
+  and useless as advice.
+- **`changesTo` is computed, not assumed** — clearing a block often leaves a
+  review requirement, so it is frequently `escalated`, not `approved`.
+
+### Analytics (`analytics_engine.py`)
+
+- **Percentiles, not means** — nearest-rank, so every figure is a request that
+  really happened. Live seed shows p50 14ms / mean 109ms / p99 1913ms.
+- **Rates carry their denominator** — 8% of 12 is noise, 8% of 12,000 is a
+  finding.
+- Quiet days rendered, not skipped. Empty buckets reported. `0/0` → 0%, not
+  100%. Amount-less actions excluded from exposure.
+- **Dead-rule detection**: a policy evaluated ≥20 times that never matched is
+  mis-scoped or redundant — but not flagged before it has been tested.
+
+### Agent Benchmark (`benchmark_engine.py`) — newest
+
+Ranks agents doing the **same job** on five weighted criteria: security .30,
+compliance .25, efficiency .20, reliability .15, speed .10.
+
+- **Only comparable things compared** — cross-capability ranking raises.
+- **Absolute scores, never normalised to the cohort** (normalising manufactures
+  a worst member at 0 by construction).
+- Security counts blocks but **ignores escalations** (an escalation is the
+  system working). Efficiency counts escalations (they cost human time).
+  Reliability measures trust *variance*.
+- **Unproven agents cannot be the benchmark.** Found in the rendered ranking:
+  a 1-decision agent was topping a cohort of 11 and setting the bar everyone
+  else was measured against.
+- **Mechanism ranking**: score change decomposed per factor, split into "the
+  factor moved" vs "its weight was re-tuned". Unexplained remainder reported
+  as a **residual**, never spread across factors. A large residual is the
+  useful signal — the model judged the agent differently for reasons its
+  inputs do not capture.
+
+Seeded cohort: `Customer Servicing`, 10 agents in `app/seed_cohort.py`, each
+tuned to fail on a *different* criterion (fast-but-careless,
+slow-but-impeccable, escalates-everything, unstable, brand-new).
+
+---
+
+## 6. Recurring design principle
+
+The through-line in every review comment and commit message:
+
+> **Prefer an honest gap to a plausible fabrication.**
+
+Concretely: residuals are surfaced rather than distributed; rates ship with
+their denominators; thin evidence is flagged *and* prevented from setting the
+bar; "tamper-evident" is never called "tamper-proof"; drivers are labelled
+"current, not historical" because attribution is not snapshotted; a searched
+boundary is never labelled exact.
+
+---
+
+## 7. Current state
+
+- **412 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
+  clean, production build clean.
+- API Docker image built and verified end-to-end (runs non-root, connects to
+  Postgres, serves login, config guardrail fires inside the container).
+
+### Known open issues
+
+1. **Suite is not repeatable without reseeding.** A second consecutive run
+   fails `test_declining_agent_is_flagged_as_drifting`: other tests call
+   `/trust/recompute`, which appends flat snapshots that bury the seeded
+   decline. Verified 2026-08-24 — still present. Needs transactional test
+   isolation. *Workaround: `python -m app.seed --reset` before each run.*
+2. **Web Docker image never built.** The API one was verified; the Next.js
+   image's Dockerfile is written but unexercised.
+3. **Ledger `append` is not multi-writer safe** (documented in code).
+
+---
+
+## 8. Mentor feedback — the roadmap ahead
+
+Five directions raised, mapped to status:
+
+| # | Point | Status |
+| --- | --- | --- |
+| 1 | Rank N agents doing the same job (security/speed/efficiency) | ✅ **Phase 11** |
+| 2 | Mechanism ranking — what changed that moved the score | ✅ **Phase 11** |
+| 3 | Verticals: mutual funds, portfolio mgmt, travel (safety/privacy), booking | ❌ engine is domain-neutral; seed is generic finance |
+| 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ❌ whole new action domain |
+| 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ❌ depends on 1+2, which now exist |
+
+**Suggested next:** #5 (capacity & scaling recommendation) — it builds
+directly on the benchmark cohort now in place, and is the most demo-ready.
+#3 is largely seed data + policy vocabulary. #4 is the largest lift.
+
+---
+
+## 9. Conventions for whoever picks this up
+
+- **Read `apps/web/AGENTS.md` before touching frontend code.** Next.js 16 has
+  breaking changes vs training data — e.g. `middleware.ts` is deprecated and
+  renamed `proxy.ts`. Consult `node_modules/next/dist/docs/`.
+- Engines are pure; services do I/O. Keep it that way.
+- Comments explain **why**, especially non-obvious trade-offs. Match the
+  existing density.
+- Tests are named as behaviours (`test_an_unproven_agent_cannot_lead_the_cohort`)
+  and carry a docstring saying why the behaviour matters.
+- Commit messages are prose explaining the reasoning and any bug found, not a
+  changelog.
+- Standing instruction from the repo owner: **commit and push each completed
+  phase to `main` without asking**.
