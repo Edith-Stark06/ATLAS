@@ -9,7 +9,10 @@ import type {
   Agent,
   DashboardData,
   Decision,
+  Cohort,
+  CohortBenchmark,
   DecisionExplanation,
+  ScoreChangeAttribution,
   GovernanceAnalytics,
   EvaluateRequest,
   EvaluateResponse,
@@ -254,6 +257,23 @@ export const simulatePolicyRule = (rule: PolicyRule) =>
  */
 export const runSimulation = (request: SimulateActionRequest) =>
   apiPost<SimulateActionResponse>("/simulation/run", request, REQUEST_TIMEOUT_MS * 2);
+
+// --- Comparative benchmarking ------------------------------------------------
+
+/** Capabilities with agents in them — the groups that can be ranked. */
+export const fetchCohorts = () => apiGet<Cohort[]>("/benchmark/cohorts");
+
+/** Rank every agent doing one job, best first. */
+export const fetchCohortBenchmark = (capability: string, days = 30) =>
+  apiGet<CohortBenchmark>(
+    `/benchmark/cohorts/${encodeURIComponent(capability)}?days=${days}`,
+  );
+
+/** What moved an agent's score, decomposed by factor. */
+export const fetchScoreChanges = (agentId: string, days = 30) =>
+  apiGet<ScoreChangeAttribution>(
+    `/benchmark/agents/${encodeURIComponent(agentId)}/changes?days=${days}`,
+  );
 
 // --- Governance analytics ----------------------------------------------------
 

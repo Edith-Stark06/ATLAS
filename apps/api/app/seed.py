@@ -38,6 +38,7 @@ from app.models import (
     TrustSnapshot,
     User,
 )
+from app.seed_cohort import COHORT_CAPABILITY, build_cohort
 from app.seed_policy_rules import POLICY_RULES
 from app.services import auth_service, policy_engine, trust_service
 
@@ -282,8 +283,19 @@ def build_policies() -> list[Policy]:
     ]
 
 
-def build_decisions() -> list[Decision]:
-    return [
+#: The reference decisions were authored against this instant. They are slid
+#: forward to "now" at seed time rather than inserted at these literal dates —
+#: the trust engine's anomaly penalty only looks back 7 days, so a fixed date
+#: means the seeded evidence silently ages out of every time-windowed
+#: behaviour and the dataset stops demonstrating what it was built to show.
+DECISION_EPOCH = _dt("2026-08-19T14:52:10Z")
+
+
+def build_decisions(now: datetime | None = None) -> list[Decision]:
+    """The reference decisions, slid so the newest sits just before `now`."""
+    shift = (now or datetime.now(UTC)) - DECISION_EPOCH
+
+    decisions = [
         Decision(
             id="EXP-8892-BL",
             agent_id="agt-expense-02",
@@ -549,6 +561,13 @@ def build_decisions() -> list[Decision]:
             ],
         ),
     ]
+
+    # Slide the whole set forward together, preserving the spacing between
+    # them, so relative ordering and same-day grouping survive the shift.
+    for decision in decisions:
+        decision.decided_at = decision.decided_at + shift
+
+    return decisions
 
 
 def build_simulations() -> list[SimulationRun]:
@@ -931,7 +950,16 @@ async def seed(reset: bool = False) -> None:
             policy.active_version_id = policy_version.id
             policy.version = version
 
-        session.add_all(build_decisions())
+        session.add_all(build_decisions(now=now))
+
+        # Ten agents doing one job, so the benchmark screen has a real cohort
+        # to rank rather than a population of one per capability.
+        cohort_agents, cohort_decisions, cohort_snapshots = build_cohort(now=now)
+        session.add_all(cohort_agents)
+        await session.flush()  # cohort agents must exist before their decisions
+        session.add_all(cohort_decisions)
+        session.add_all(cohort_snapshots)
+
         await session.flush()  # decisions must exist before simulations reference them
 
         session.add_all(build_simulations())
@@ -948,7 +976,10 @@ async def seed(reset: bool = False) -> None:
         bootstrap_note = await ensure_bootstrap_admin(session)
 
     print(
-        "Seeded: 6 agents, 9 policies (with rule versions), 6 decisions, "
+        f"Seeded: {6 + len(cohort_agents)} agents "
+        f"({len(cohort_agents)} in the '{COHORT_CAPABILITY}' cohort), "
+        "9 policies (with rule versions), "
+        f"{6 + len(cohort_decisions)} decisions, "
         "3 simulations, 6 activity items, "
         f"{len(agents) * HISTORY_ROUNDS} trust snapshots"
     )

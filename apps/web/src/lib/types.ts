@@ -553,6 +553,81 @@ export interface GovernanceAnalytics {
   exposure: ExposureSummary;
 }
 
+// --- Comparative benchmarking -------------------------------------------------
+
+export interface Cohort {
+  /** A cohort is a job, not a team. Agents are only comparable within one. */
+  capability: string;
+  agents: number;
+}
+
+export interface BenchmarkCriterion {
+  key: string;
+  label: string;
+  /** 0-100, on a fixed scale — deliberately not normalised within the cohort. */
+  score: number;
+  weight: number;
+  basis: string;
+  contribution: number;
+}
+
+export interface BenchmarkAgentScore {
+  agentId: string;
+  agentName: string;
+  capability: string;
+  composite: number;
+  criteria: BenchmarkCriterion[];
+  decisions: number;
+  /** Too little activity for the rates to be a track record. */
+  thinEvidence: boolean;
+}
+
+export interface BenchmarkGap {
+  key: string;
+  label: string;
+  agentScore: number;
+  leaderScore: number;
+  points: number;
+  /** How much of the composite gap this criterion accounts for. */
+  compositeCost: number;
+}
+
+export interface CohortBenchmark {
+  capability: string;
+  windowDays: number;
+  weights: Record<string, number>;
+  scored: BenchmarkAgentScore[];
+  leaderId: string | null;
+  comparable: boolean;
+  gaps: Record<string, BenchmarkGap[]>;
+}
+
+export interface ScoreContribution {
+  key: string;
+  label: string;
+  before: number;
+  after: number;
+  contribution: number;
+  /** The factor's own movement. */
+  fromValue: number;
+  /** The factor's weight being re-tuned — a different event. */
+  fromWeight: number;
+}
+
+export interface ScoreChangeAttribution {
+  agentId: string;
+  windowDays: number;
+  beforeScore: number;
+  afterScore: number;
+  delta: number;
+  contributions: ScoreContribution[];
+  penaltyDelta: number;
+  residual: number;
+  /** 0-1. Large means the model, not the factors, moved the score. */
+  residualShare: number;
+  reconciles: boolean;
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {

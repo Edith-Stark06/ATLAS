@@ -144,6 +144,7 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/decisions/[id]` | Decision Investigation | `decision-investigation` |
 | `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
 | `/console/explain` | Explain AI — drivers, rule evidence, counterfactuals | built in Next.js |
+| `/console/benchmark` | Agent Benchmark — cohort ranking, gaps, change attribution | built in Next.js |
 | `/console/analytics` | Governance Analytics — trends, latency, policy hot spots | built in Next.js |
 | `/console/ledger` | Governance Ledger — chain integrity + audit records | built in Next.js |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
@@ -200,6 +201,9 @@ Everything except `/health` and `/auth/login` requires an
 | `GET /api/v1/ledger/{seq}` | One audit record with its pinned evidence |
 | `GET /api/v1/explain/decisions/{id}` | Why a decision came out as it did, and what would change it |
 | `GET /api/v1/analytics` | Aggregate trends over a rolling window (`days`) |
+| `GET /api/v1/benchmark/cohorts` | Capabilities with agents in them — the rankable groups |
+| `GET /api/v1/benchmark/cohorts/{capability}` | Rank every agent doing that job, with gaps to the leader |
+| `GET /api/v1/benchmark/agents/{id}/changes` | Decompose an agent's score change by factor |
 
 ## Trust Engine
 
@@ -578,6 +582,71 @@ Other deliberate details:
 - **The window is applied in SQL.** Pulling every decision ever recorded to
   count last week's works fine on seed data and falls over on a real estate.
 
+## Agent Benchmark
+
+Every earlier phase scores an agent in isolation — is *this* action safe.
+This answers the question an operator actually asks: given ten agents doing
+the same job, which should get more of the work, and what would the others
+have to change to catch up.
+
+`GET /benchmark/cohorts/{capability}` ranks a cohort on five criteria with
+published weights:
+
+| Criterion | Weight | Measures |
+| --- | --- | --- |
+| Security | 30% | Rate of actions the rules *blocked* — the agent proposed something it was not permitted to do |
+| Compliance | 25% | Share of individual policy checks passed |
+| Efficiency | 20% | Share of work completed without a human; escalations are the running cost of an estate |
+| Reliability | 15% | Stability of the trust score — an agent swinging 40–90 averages the same as one steady at 65 |
+| Speed | 10% | p95 latency against a fixed 50–2000ms budget |
+
+The design guards against the ways a ranking quietly becomes wrong:
+
+- **Only comparable things are compared.** Ranking across capabilities raises
+  rather than returning a confident, meaningless ordering.
+- **Scores are absolute, not normalised to the cohort.** Normalising makes the
+  best member 100 and the worst 0 *by construction*, so a uniformly excellent
+  estate would appear to contain a failing agent.
+- **Security ignores escalations.** An escalation is the system working;
+  penalising it would reward an agent for being merely timid.
+- **An unexercised agent scores 0 on compliance, not 100.** No checks recorded
+  is no evidence, not a clean record.
+- **An unproven agent cannot be the benchmark.** The leader is what every
+  other agent's gap is measured against, so one lucky decision must not set
+  the bar. Thin-evidence agents sort below established ones with their real
+  score still shown — sorted down, not doctored.
+- **Gaps rank by what would move the composite**, not by raw point
+  difference: a 30-point speed gap (weight 0.10) matters less than a 12-point
+  security gap (weight 0.30).
+
+### Mechanism ranking — what changed
+
+`GET /benchmark/agents/{id}/changes` decomposes a score movement into the
+factors that caused it. The base score is a weighted sum, so each factor's
+share is arithmetic rather than estimated:
+
+```
+contribution = w_after·s_after − w_before·s_before
+             = w_before·(s_after − s_before)   ← the factor moved
+             + s_after·(w_after − w_before)    ← its weight was re-tuned
+```
+
+Those are separated because "policy compliance improved" and "policy
+compliance now counts for more" are different events.
+
+**The parts must sum to the whole.** Anything the decomposition cannot
+account for is reported as a `residual` rather than spread across the
+factors — an attribution that silently absorbs its own error is not an
+attribution. In practice the residual is often large, and that is the useful
+part: the trust score comes from a trained model, not the weighted sum this
+decomposition assumes, so a big residual means *the model* judged the agent
+differently for reasons its input factors do not capture.
+
+The seeded `Customer Servicing` cohort (`app/seed_cohort.py`) is ten agents
+tuned to lose ground on *different* criteria — fast-but-careless,
+slow-but-impeccable, escalates-everything, unstable, brand-new — so the
+weighting is visible doing work in the ordering rather than hidden by it.
+
 ---
 
 ## Build phases
@@ -595,3 +664,4 @@ Other deliberate details:
 | 8 | Auth, roles, actor attribution, containerised deployment | ✅ |
 | 9 | Explain AI — drivers, rule evidence, verified counterfactuals | ✅ |
 | 10 | Governance Analytics — trends, latency percentiles, policy hot spots | ✅ |
+| 11 | Agent Benchmark — cohort ranking and score-change attribution | ✅ |
