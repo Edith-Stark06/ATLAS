@@ -119,7 +119,7 @@ governance dataset and deliberately leaves credentials alone.
 | 9 | Explain AI — drivers, rule evidence, counterfactuals | `1493b60` |
 | 10 | Governance Analytics — trends, latency, policy hot spots | `fb515ca` |
 | 11 | Agent Benchmark — cohort ranking, change attribution | `b7fec78` |
-| 12 | Capacity Planning — growth constraints, binding limit | *this commit* |
+| 12 | Capacity Planning — growth constraints, binding limit | `bea097b` |
 
 Remaining console placeholders: **Alerts**, **Settings**.
 
