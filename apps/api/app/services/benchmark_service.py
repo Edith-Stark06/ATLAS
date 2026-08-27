@@ -118,21 +118,42 @@ async def _metrics_for(db: AsyncSession, agent: Agent, *, since: datetime) -> Ag
     )
 
 
+def window_start(days: int) -> datetime:
+    """Start of the observation window, snapped to a day boundary.
+
+    Snapped so a 30-day window is thirty whole days rather than
+    twenty-nine-and-a-fraction depending on the hour it was asked for.
+    """
+    days = max(1, min(days, MAX_WINDOW_DAYS))
+    return (datetime.now(UTC) - timedelta(days=days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+async def cohort_metrics(
+    db: AsyncSession, capability: str, *, days: int = DEFAULT_WINDOW_DAYS
+) -> list[AgentMetrics]:
+    """Raw observations for every agent doing this job.
+
+    Public because capacity planning needs the same numbers. Deriving
+    throughput and quality a second way would let the two screens disagree —
+    a capacity plan recommending growth for an agent the benchmark shows
+    failing is worse than either screen alone.
+    """
+    agents = (await db.execute(select(Agent).where(Agent.capability == capability))).scalars().all()
+    if not agents:
+        raise CohortNotFound(f"No agents with capability '{capability}'")
+
+    since = window_start(days)
+    return [await _metrics_for(db, agent, since=since) for agent in agents]
+
+
 async def benchmark_cohort(
     db: AsyncSession, capability: str, *, days: int = DEFAULT_WINDOW_DAYS
 ) -> BenchmarkResult:
     """Rank every agent doing this job."""
     days = max(1, min(days, MAX_WINDOW_DAYS))
-    since = (datetime.now(UTC) - timedelta(days=days - 1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-
-    agents = (await db.execute(select(Agent).where(Agent.capability == capability))).scalars().all()
-
-    if not agents:
-        raise CohortNotFound(f"No agents with capability '{capability}'")
-
-    cohort = [await _metrics_for(db, agent, since=since) for agent in agents]
+    cohort = await cohort_metrics(db, capability, days=days)
     ranking = benchmark_engine.rank_cohort(cohort)
 
     gaps: dict[str, list[Gap]] = {}

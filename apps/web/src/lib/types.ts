@@ -628,6 +628,60 @@ export interface ScoreChangeAttribution {
   reconciles: boolean;
 }
 
+// --- Capacity planning ---------------------------------------------------------
+
+export interface CapacityRequest {
+  capability: string;
+  /** How much more volume. 1–20; this plans for growth only. */
+  multiplier: number;
+  days?: number;
+  /** Reviewer-days available per day, today. */
+  reviewerDaysAvailable: number;
+  /** Human minutes per escalated decision. */
+  reviewMinutes?: number;
+}
+
+export interface CapacityConstraint {
+  key: string;
+  label: string;
+  available: number;
+  required: number;
+  unit: string;
+  detail: string;
+  /** Spare capacity as a share of what is needed, 0–1. Floors at 0. */
+  headroom: number;
+  satisfied: boolean;
+  shortfall: number;
+}
+
+export interface CapacityAgentPlan {
+  agentId: string;
+  agentName: string;
+  /** "scale" | "hold" | "fix_first" | "observe" */
+  action: string;
+  currentDaily: number;
+  recommendedDaily: number;
+  changePct: number;
+  reason: string;
+}
+
+export interface CapacityPlan {
+  capability: string;
+  windowDays: number;
+  multiplier: number;
+  currentDaily: number;
+  targetDaily: number;
+  constraints: CapacityConstraint[];
+  /** The constraint that runs out first — the actual answer. */
+  bindingConstraint: string | null;
+  feasible: boolean;
+  /** Target volume no agent was judged safe to take. */
+  unallocatedDaily: number;
+  agents: CapacityAgentPlan[];
+  assumptions: string[];
+  outOfScope: string[];
+}
+
 export type PipelineStageStatus = "done" | "active" | "pending" | "failed";
 
 export interface PipelineStage {

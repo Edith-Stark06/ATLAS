@@ -3,6 +3,7 @@ import {
   Bell,
   Bot,
   FlaskConical,
+  Gauge,
   LayoutDashboard,
   Lightbulb,
   Medal,
@@ -36,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Explain AI", href: "/console/explain", icon: Lightbulb, built: true },
   { label: "Governance Ledger", href: "/console/ledger", icon: ScrollText, built: true },
   { label: "Agent Benchmark", href: "/console/benchmark", icon: Medal, built: true },
+  { label: "Capacity Planning", href: "/console/capacity", icon: Gauge, built: true },
   { label: "Analytics", href: "/console/analytics", icon: BarChart3, built: true },
   { label: "Alerts", href: "/console/alerts", icon: Bell, built: false },
 ];

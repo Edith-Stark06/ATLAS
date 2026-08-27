@@ -5,6 +5,7 @@ from app.api.routes import (
     analytics,
     auth,
     benchmark,
+    capacity,
     dashboard,
     explain,
     governance,
@@ -37,6 +38,7 @@ api_router.include_router(governance.router, dependencies=[RequireViewer])
 api_router.include_router(explain.router, dependencies=[RequireViewer])
 api_router.include_router(analytics.router, dependencies=[RequireViewer])
 api_router.include_router(benchmark.router, dependencies=[RequireViewer])
+api_router.include_router(capacity.router, dependencies=[RequireViewer])
 api_router.include_router(dashboard.router, dependencies=[RequireViewer])
 api_router.include_router(ledger.router, dependencies=[RequireViewer])
 api_router.include_router(policy.router, dependencies=[RequireViewer])

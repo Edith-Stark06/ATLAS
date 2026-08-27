@@ -13,6 +13,8 @@
  */
 
 import type {
+  CapacityPlan,
+  CapacityRequest,
   ExecuteDecisionRequest,
   ExecuteDecisionResponse,
   PolicyRule,
@@ -70,6 +72,10 @@ async function post<T>(path: string, body: unknown, timeoutMs = REQUEST_TIMEOUT_
 
   return (await res.json()) as T;
 }
+
+/** Projects what growing a job would demand of governance. Read-only. */
+export const planCapacity = (request: CapacityRequest) =>
+  post<CapacityPlan>("/capacity/plan", request, REQUEST_TIMEOUT_MS * 2);
 
 /** Evaluates a proposed action end to end. Nothing is persisted. */
 export const runSimulation = (request: SimulateActionRequest) =>

@@ -145,6 +145,7 @@ The marketing page owns `/`; the console lives under `/console`.
 | `/console/simulations` | Simulation Engine + scenario workspace | `simulation-engine-workspace` |
 | `/console/explain` | Explain AI — drivers, rule evidence, counterfactuals | built in Next.js |
 | `/console/benchmark` | Agent Benchmark — cohort ranking, gaps, change attribution | built in Next.js |
+| `/console/capacity` | Capacity Planning — growth constraints and allocation | built in Next.js |
 | `/console/analytics` | Governance Analytics — trends, latency, policy hot spots | built in Next.js |
 | `/console/ledger` | Governance Ledger — chain integrity + audit records | built in Next.js |
 | `/console/trust-engine` | Trust Engine | built in Next.js |
@@ -204,6 +205,7 @@ Everything except `/health` and `/auth/login` requires an
 | `GET /api/v1/benchmark/cohorts` | Capabilities with agents in them — the rankable groups |
 | `GET /api/v1/benchmark/cohorts/{capability}` | Rank every agent doing that job, with gaps to the leader |
 | `GET /api/v1/benchmark/agents/{id}/changes` | Decompose an agent's score change by factor |
+| `POST /api/v1/capacity/plan` | Project what growing a job would demand of governance |
 
 ## Trust Engine
 
@@ -647,6 +649,58 @@ tuned to lose ground on *different* criteria — fast-but-careless,
 slow-but-impeccable, escalates-everything, unstable, brand-new — so the
 weighting is visible doing work in the ordering rather than hidden by it.
 
+## Capacity Planning
+
+`POST /capacity/plan` answers the question a bank actually asks — *"we want
+three times the volume through customer servicing, what do we need?"* — and
+the useful part of the answer is rarely the headline number.
+
+On the seeded cohort, asking for 3×:
+
+```
+56 → 168 decisions/day          NOT REACHABLE
+
+  Human review            0.7 / 2.0    reviewer-days/day   208% headroom
+  Trusted agent capacity  168 / 84.7   decisions/day         0% headroom  ← BINDING
+  Latency budget          768 / 2000   ms (p95)            160% headroom
+
+  FIX FIRST  Rapid Triage Agent      10.3 → 10.3/day
+  HOLD       Complaints Handling      3.2 →  3.2/day
+  SCALE      Tier-1 Resolution        8.0 → 16.0/day
+```
+
+The answer is not "hire reviewers" — review has 208% headroom. It is that the
+**busiest agent in the cohort is the one that cannot be scaled**, and the
+estate is 83 decisions/day short of trusted capacity.
+
+- **The binding constraint is the output**, not a footnote. Adding agents does
+  not help when what runs out is human review, and a plan reporting only a
+  headline number hides exactly that. `binding` is the constraint with the
+  *least headroom* — so a constraint can be satisfied and still be the limit.
+- **Quality gates growth, not volume.** The temptation is to scale whoever is
+  busiest, but throughput is what created the problem.
+- **Safety is checked directly, not through the composite.** The seeded cohort
+  is why: the agent with the cohort's worst security *and* worst compliance
+  still scored 84.5 composite, because it was the fastest and speed carried it
+  over a composite floor. Speed does not offset a compliance problem — it makes
+  the violations arrive sooner. Growth requires clearing security and
+  compliance floors independently.
+- **Latency is measured across the agents actually taking load.** An earlier
+  version took the cohort's slowest agent, so one slow agent nobody was scaling
+  made every plan permanently infeasible — a constraint that always fails is
+  noise, not information.
+- **Growth is capped at 2× per agent.** Nobody triples an agent's load
+  overnight, and a plan an operations team cannot execute is not a plan.
+- **Unreachable targets say so.** `unallocatedDaily` is the volume no agent was
+  judged safe to take. A plan that quietly falls short of its own target is
+  worse than one that admits it.
+- **Assumptions travel with the answer** — minutes per review, productive
+  minutes per reviewer-day, and the big one: that rates measured at today's
+  volume hold at the higher volume.
+- **What ATLAS cannot answer is declared.** It observes decisions, not servers,
+  queue depth or licences, so it does not size infrastructure or cost. Saying
+  so stops the plan being mistaken for a full one.
+
 ---
 
 ## Build phases
@@ -665,3 +719,4 @@ weighting is visible doing work in the ordering rather than hidden by it.
 | 9 | Explain AI — drivers, rule evidence, verified counterfactuals | ✅ |
 | 10 | Governance Analytics — trends, latency percentiles, policy hot spots | ✅ |
 | 11 | Agent Benchmark — cohort ranking and score-change attribution | ✅ |
+| 12 | Capacity Planning — growth constraints, allocation, binding limit | ✅ |

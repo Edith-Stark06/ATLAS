@@ -1,6 +1,6 @@
 # ATLAS — Project Memory
 
-Complete context handoff. Written 2026-08-24 against commit `b7fec78`.
+Complete context handoff. Written 2026-08-24, updated against Phase 12.
 
 Repo: https://github.com/Edith-Stark06/ATLAS · branch `main` · local path
 `D:\Documents\Projects\ATLAS`
@@ -119,6 +119,7 @@ governance dataset and deliberately leaves credentials alone.
 | 9 | Explain AI — drivers, rule evidence, counterfactuals | `1493b60` |
 | 10 | Governance Analytics — trends, latency, policy hot spots | `fb515ca` |
 | 11 | Agent Benchmark — cohort ranking, change attribution | `b7fec78` |
+| 12 | Capacity Planning — growth constraints, binding limit | *this commit* |
 
 Remaining console placeholders: **Alerts**, **Settings**.
 
@@ -276,6 +277,24 @@ Seeded cohort: `Customer Servicing`, 10 agents in `app/seed_cohort.py`, each
 tuned to fail on a *different* criterion (fast-but-careless,
 slow-but-impeccable, escalates-everything, unstable, brand-new).
 
+### Capacity Planning (`capacity_engine.py`) — newest
+
+`POST /capacity/plan` projects what growing a job would demand of governance.
+The output is the **binding constraint**, not a headline number.
+
+- Constraints: human review (reviewer-days), trusted agent capacity, latency
+  budget. `binding` is the one with the *least headroom* — so a constraint can
+  be satisfied and still be the limit.
+- **Safety is gated directly, not via the composite.** The seeded cohort's
+  worst agent on security *and* compliance still scored 84.5 composite because
+  it was the fastest. Speed does not offset a compliance problem.
+- Latency measured only across agents actually taking load — otherwise one slow
+  agent nobody is scaling vetoes every plan.
+- Growth capped at 2× per agent. `unallocatedDaily` surfaces target volume
+  nobody can safely take.
+- Assumptions and out-of-scope both travel in the response. ATLAS observes
+  decisions, not servers — it does not size infrastructure or cost.
+
 ---
 
 ## 6. Recurring design principle
@@ -294,7 +313,7 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **412 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
+- **460 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
   clean, production build clean.
 - API Docker image built and verified end-to-end (runs non-root, connects to
   Postgres, serves login, config guardrail fires inside the container).
@@ -322,11 +341,12 @@ Five directions raised, mapped to status:
 | 2 | Mechanism ranking — what changed that moved the score | ✅ **Phase 11** |
 | 3 | Verticals: mutual funds, portfolio mgmt, travel (safety/privacy), booking | ❌ engine is domain-neutral; seed is generic finance |
 | 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ❌ whole new action domain |
-| 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ❌ depends on 1+2, which now exist |
+| 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ✅ **Phase 12** |
 
-**Suggested next:** #5 (capacity & scaling recommendation) — it builds
-directly on the benchmark cohort now in place, and is the most demo-ready.
-#3 is largely seed data + policy vocabulary. #4 is the largest lift.
+**Suggested next:** #3 (vertical packs — funds, portfolio, travel, booking)
+is largely seed data plus policy-vocabulary extensions and is the cheaper of
+the two. #4 (IT Ops — logs, transaction scaling) is the largest lift: a whole
+new action domain, and the one that would most broaden what ATLAS governs.
 
 ---
 
