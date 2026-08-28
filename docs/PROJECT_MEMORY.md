@@ -120,7 +120,7 @@ governance dataset and deliberately leaves credentials alone.
 | 10 | Governance Analytics — trends, latency, policy hot spots | `fb515ca` |
 | 11 | Agent Benchmark — cohort ranking, change attribution | `b7fec78` |
 | 12 | Capacity Planning — growth constraints, binding limit | `bea097b` |
-| 13 | Vertical packs — domain vocabulary and rules | *this commit* |
+| 13 | Vertical packs — domain vocabulary and rules | `729922d` |
 
 Remaining console placeholders: **Alerts**, **Settings**.
 
