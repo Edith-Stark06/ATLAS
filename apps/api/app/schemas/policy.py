@@ -16,6 +16,13 @@ class FieldSpecRead(ApiModel):
     label: str
     kind: str
     description: str
+    #: The vertical pack that contributes this field, or None for a core field
+    #: every domain shares. The authoring UI uses this to avoid offering a
+    #: travel author a mutual-funds field, which would produce a rule that can
+    #: never fire.
+    domain: str | None = None
+    #: Capabilities this field is meaningful for. Empty means every capability.
+    applies_to: list[str] = []
 
 
 class RuleVocabularyRead(ApiModel):
@@ -27,6 +34,18 @@ class RuleVocabularyRead(ApiModel):
     effects: list[str]
     #: Distinct agent capabilities, for the applies_to picker.
     capabilities: list[str]
+    #: Registered vertical packs, so a client can group the field picker by
+    #: domain and show what each one governs.
+    domains: list["DomainRead"] = []
+
+
+class DomainRead(ApiModel):
+    key: str
+    label: str
+    description: str
+    capabilities: list[str]
+    #: Field names this pack contributes.
+    fields: list[str]
 
 
 class ConditionRead(ApiModel):

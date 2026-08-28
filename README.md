@@ -701,6 +701,51 @@ estate is 83 decisions/day short of trusted capacity.
   queue depth or licences, so it does not size infrastructure or cost. Saying
   so stops the plan being mistaken for a full one.
 
+## Vertical Packs
+
+The engine is domain-neutral: trust, risk, amount and lifecycle mean the same
+thing everywhere. But a mutual-funds agent needs governing on portfolio
+concentration, a travel agent on how much personal data an action touched, and
+neither field means anything to the other.
+
+A **pack** (`app/domains/`) contributes three things — extra rule fields, the
+capabilities it governs, and pre-authored rules:
+
+| Pack | Governs | Adds fields like |
+| --- | --- | --- |
+| **Mutual Funds & Portfolio** | Mutual Funds, Portfolio Management | `portfolio_concentration_pct`, `security_restricted`, `client_risk_profile`, `suitability_score` |
+| **Travel — Safety & Privacy** | Travel & Expense, Travel Safety | `pii_fields_accessed`, `destination_risk_tier`, `traveller_consent`, `cross_border_transfer` |
+| **Booking & Inventory** | Booking, Inventory Management | `inventory_remaining_pct`, `price_variance_pct`, `overbooking` |
+
+7 core fields + 13 domain fields = 20, resolved by `evaluable_fields()`.
+
+The vocabulary stays **closed** — it becomes core *plus* registered packs, not
+open. A rule referencing an unknown field is still refused.
+
+Two properties carry the weight:
+
+- **A rule from one domain cannot fire on another**, guarded twice over.
+  Scope excludes it (`applies_to` is the pack's capabilities), and the field
+  is absent anyway. The second guard matters because **absent is not zero** —
+  a travel decision carries no `portfolio_concentration_pct`, so
+  `concentration > 25` is *unevaluable*, not cleanly false. Treating a missing
+  value as 0 would have the rule decline for the wrong reason, and a rule that
+  is right by accident is one refactor from being wrong.
+- **A pack cannot shadow a core field.** Core wins any name clash, so a pack
+  redefining `risk_score` cannot silently change what every existing rule
+  means. Field names are also asserted unique *across* packs — two packs
+  declaring `risk_tier` differently would make a rule's meaning depend on
+  import order.
+
+Shipped rules are **not privileged**. They go through the same parser and the
+same immutable-version storage as anything an operator writes, and tests assert
+each one only references core or its own domain's fields — a booking rule
+reaching for a funds field would parse cleanly and then never fire.
+
+The vocabulary endpoint reports each field's `domain`, so the rule builder
+groups the picker by vertical rather than offering an author a field their
+rule could never evaluate.
+
 ---
 
 ## Build phases
@@ -720,3 +765,4 @@ estate is 83 decisions/day short of trusted capacity.
 | 10 | Governance Analytics — trends, latency percentiles, policy hot spots | ✅ |
 | 11 | Agent Benchmark — cohort ranking and score-change attribution | ✅ |
 | 12 | Capacity Planning — growth constraints, allocation, binding limit | ✅ |
+| 13 | Vertical packs — domain vocabulary and rules for named industries | ✅ |

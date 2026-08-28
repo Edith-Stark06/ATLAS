@@ -62,10 +62,14 @@ class FieldSpec:
     description: str
 
 
-#: The only fields a rule may reference. A closed vocabulary keeps rules
-#: safe to evaluate (no arbitrary attribute access) and lets the authoring
-#: UI offer a real field picker instead of a free-text box.
-EVALUABLE_FIELDS: dict[str, FieldSpec] = {
+#: Fields every domain shares. Trust, risk, amount and lifecycle mean the
+#: same thing whatever the agent does.
+#:
+#: The vocabulary stays closed — a rule may only reference known fields, so
+#: evaluation never reaches for an arbitrary attribute and the authoring UI can
+#: offer a real picker. It is simply core *plus* whatever vertical packs
+#: declare; see `evaluable_fields()`.
+CORE_FIELDS: dict[str, FieldSpec] = {
     "trust_score": FieldSpec("Trust Score", int, "Agent trust at decision time, 0–100"),
     "risk_score": FieldSpec("Risk Score", int, "Assessed risk of the action, 0–100"),
     "amount_usd": FieldSpec(
@@ -78,6 +82,19 @@ EVALUABLE_FIELDS: dict[str, FieldSpec] = {
     "capability": FieldSpec("Capability", str, "Business domain, e.g. 'Payments'"),
     "hour_utc": FieldSpec("Hour (UTC)", int, "Hour of day the action was requested, 0–23"),
 }
+
+
+def evaluable_fields() -> dict[str, FieldSpec]:
+    """Every field a rule may reference: core plus registered vertical packs.
+
+    Resolved on call rather than at import: the packs import `FieldSpec` from
+    this module, so computing it eagerly would be a circular import. The
+    result is small and the call is cheap.
+    """
+    from app.domains import domain_fields
+
+    return {**CORE_FIELDS, **domain_fields()}
+
 
 #: Operators that need an ordered comparison, so they cannot be applied to
 #: strings or to a missing value.
@@ -97,7 +114,7 @@ class Condition:
     value: Any
 
     def describe(self) -> str:
-        spec = EVALUABLE_FIELDS.get(self.field)
+        spec = evaluable_fields().get(self.field)
         label = spec.label if spec else self.field
         symbol = {
             Operator.LT: "<",
@@ -133,8 +150,22 @@ class PolicyContext:
     capability: str
     hour_utc: int
 
+    #: Domain values contributed by a vertical pack — portfolio concentration,
+    #: destination risk tier, inventory remaining. Absent keys stay absent
+    #: rather than defaulting: a funds rule evaluated against a travel decision
+    #: must decline to fire, not read a missing concentration as 0% and block
+    #: something it knows nothing about.
+    attributes: dict[str, Any] = field(default_factory=dict)
+
     def get(self, field_name: str) -> Any:
-        return getattr(self, field_name, None)
+        """Core fields first, then domain attributes.
+
+        Core wins a name clash so a pack cannot shadow `risk_score` and
+        quietly change what every existing rule means.
+        """
+        if field_name in CORE_FIELDS:
+            return getattr(self, field_name, None)
+        return self.attributes.get(field_name)
 
 
 @dataclass(frozen=True)
@@ -179,9 +210,10 @@ def parse_condition(raw: dict) -> Condition:
     except (KeyError, ValueError) as exc:
         raise RuleValidationError(f"Malformed condition {raw!r}: {exc}") from exc
 
-    spec = EVALUABLE_FIELDS.get(field_name)
+    fields = evaluable_fields()
+    spec = fields.get(field_name)
     if spec is None:
-        allowed = ", ".join(sorted(EVALUABLE_FIELDS))
+        allowed = ", ".join(sorted(fields))
         raise RuleValidationError(f"Unknown field '{field_name}'. Allowed: {allowed}")
 
     if operator in MEMBERSHIP_OPERATORS:

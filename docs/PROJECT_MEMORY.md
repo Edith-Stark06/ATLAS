@@ -120,6 +120,7 @@ governance dataset and deliberately leaves credentials alone.
 | 10 | Governance Analytics — trends, latency, policy hot spots | `fb515ca` |
 | 11 | Agent Benchmark — cohort ranking, change attribution | `b7fec78` |
 | 12 | Capacity Planning — growth constraints, binding limit | `bea097b` |
+| 13 | Vertical packs — domain vocabulary and rules | *this commit* |
 
 Remaining console placeholders: **Alerts**, **Settings**.
 
@@ -295,6 +296,21 @@ The output is the **binding constraint**, not a headline number.
 - Assumptions and out-of-scope both travel in the response. ATLAS observes
   decisions, not servers — it does not size infrastructure or cost.
 
+### Vertical Packs (`app/domains/`) — newest
+
+Domain-specific rule vocabulary without forking the engine.
+
+- `evaluable_fields()` = `CORE_FIELDS` + every registered pack. Closed, not
+  open: an unknown field is still refused.
+- `PolicyContext.attributes` carries domain values. **Absent stays absent** —
+  a funds rule on a travel decision finds no concentration and is unevaluable,
+  not false.
+- Core wins a name clash; field names asserted unique across packs at import.
+- Shipped rules go through the ordinary parser and versioning. Tests assert
+  each references only core or its own domain's fields.
+- Packs: investments, travel, booking. Seeded with one agent each, carrying
+  the domain attributes their rules read.
+
 ---
 
 ## 6. Recurring design principle
@@ -313,7 +329,7 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **460 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
+- **479 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
   clean, production build clean.
 - API Docker image built and verified end-to-end (runs non-root, connects to
   Postgres, serves login, config guardrail fires inside the container).
@@ -343,10 +359,11 @@ Five directions raised, mapped to status:
 | 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ❌ whole new action domain |
 | 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ✅ **Phase 12** |
 
-**Suggested next:** #3 (vertical packs — funds, portfolio, travel, booking)
-is largely seed data plus policy-vocabulary extensions and is the cheaper of
-the two. #4 (IT Ops — logs, transaction scaling) is the largest lift: a whole
-new action domain, and the one that would most broaden what ATLAS governs.
+**Only #4 remains** — IT Ops (system analysis, log analysis, application and
+transaction scaling in banks). It is the largest lift: a genuinely new action
+domain rather than an extension of the financial one, and the one that would
+most broaden what ATLAS governs. The vertical-pack mechanism from Phase 13 is
+the natural way in.
 
 ---
 

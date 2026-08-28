@@ -3,12 +3,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app import domains
 from app.api.deps import RequireAdmin
 from app.core.database import get_db
 from app.models import Agent, Policy
 from app.schemas.policy import (
     ConditionResultRead,
     CreateVersionRequest,
+    DomainRead,
     EvaluateRequest,
     EvaluateResponse,
     FieldSpecRead,
@@ -81,17 +83,37 @@ async def rule_vocabulary(db: AsyncSession = Depends(get_db)) -> RuleVocabularyR
         .all()
     )
 
+    packs = domains.all_packs()
+
     return RuleVocabularyRead(
         fields=[
             FieldSpecRead(
-                key=key, label=spec.label, kind=spec.kind.__name__, description=spec.description
+                key=key,
+                label=spec.label,
+                kind=spec.kind.__name__,
+                description=spec.description,
+                domain=(pack.key if (pack := domains.pack_for_field(key)) else None),
+                # A core field applies everywhere; a domain field only where
+                # its pack governs. Sent so the picker cannot offer a field
+                # that would make the rule unevaluable.
+                applies_to=(list(pack.capabilities) if pack else []),
             )
-            for key, spec in policy_engine.EVALUABLE_FIELDS.items()
+            for key, spec in policy_engine.evaluable_fields().items()
         ],
         operators=[o.value for o in Operator],
         combinators=[c.value for c in Combinator],
         effects=[e.value for e in Effect],
         capabilities=capabilities,
+        domains=[
+            DomainRead(
+                key=pack.key,
+                label=pack.label,
+                description=pack.description,
+                capabilities=list(pack.capabilities),
+                fields=sorted(pack.fields),
+            )
+            for pack in packs
+        ],
     )
 
 

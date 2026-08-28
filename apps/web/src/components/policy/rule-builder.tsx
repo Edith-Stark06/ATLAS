@@ -173,10 +173,29 @@ export function RuleBuilder({
                     updateCondition(index, { field: e.target.value, operator });
                   }}
                 >
-                  {vocabulary.fields.map((f) => (
-                    <option key={f.key} value={f.key}>
-                      {f.label}
-                    </option>
+                  {/* Grouped by vertical so an author can see at a glance
+                      that a field belongs to one domain — a booking rule
+                      built on a funds field parses fine and then never
+                      fires. */}
+                  <optgroup label="Core — every domain">
+                    {vocabulary.fields
+                      .filter((f) => !f.domain)
+                      .map((f) => (
+                        <option key={f.key} value={f.key}>
+                          {f.label}
+                        </option>
+                      ))}
+                  </optgroup>
+                  {vocabulary.domains.map((domain) => (
+                    <optgroup key={domain.key} label={`${domain.label} only`}>
+                      {vocabulary.fields
+                        .filter((f) => f.domain === domain.key)
+                        .map((f) => (
+                          <option key={f.key} value={f.key}>
+                            {f.label}
+                          </option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
 

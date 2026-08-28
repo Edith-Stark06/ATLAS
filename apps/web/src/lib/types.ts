@@ -125,6 +125,21 @@ export interface RuleFieldSpec {
   /** Python type name — "int", "float", "str". */
   kind: string;
   description: string;
+  /** The vertical pack contributing this field; null for a core field every
+   * domain shares. Used to group the picker so an author is not offered a
+   * field from a domain their rule does not govern. */
+  domain: string | null;
+  /** Capabilities the field is meaningful for. Empty means everywhere. */
+  applies_to: string[];
+}
+
+export interface RuleDomain {
+  key: string;
+  label: string;
+  description: string;
+  capabilities: string[];
+  /** Field names this pack contributes. */
+  fields: string[];
 }
 
 /** Everything needed to compose a valid rule, served by the API so the
@@ -135,6 +150,8 @@ export interface RuleVocabulary {
   combinators: RuleCombinator[];
   effects: RuleEffect[];
   capabilities: string[];
+  /** Registered vertical packs, so the field picker can group by domain. */
+  domains: RuleDomain[];
 }
 
 export interface PolicyVersion {

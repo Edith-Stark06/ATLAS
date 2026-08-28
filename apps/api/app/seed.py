@@ -18,6 +18,7 @@ from app.core import security
 from app.core.compat import configure_event_loop
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
+from app.domains import PACKS
 from app.ml import models as ml_models
 from app.models import (
     ActivityItem,
@@ -39,6 +40,7 @@ from app.models import (
     User,
 )
 from app.seed_cohort import COHORT_CAPABILITY, build_cohort
+from app.seed_domains import build_domain_agents
 from app.seed_policy_rules import POLICY_RULES
 from app.services import auth_service, policy_engine, trust_service
 
@@ -950,7 +952,48 @@ async def seed(reset: bool = False) -> None:
             policy.active_version_id = policy_version.id
             policy.version = version
 
+        # Vertical packs: their policies go through the same parser and the
+        # same immutable-version storage as anything an operator authors. A
+        # rule that shipped with ATLAS is not a privileged kind of object.
+        for pack in PACKS:
+            for domain_rule in pack.policies:
+                policy_engine.parse_rule(domain_rule.rule)  # fail loudly on a typo
+
+                domain_policy = Policy(
+                    id=domain_rule.policy_id,
+                    name=domain_rule.name,
+                    version=domain_rule.version,
+                    scope=domain_rule.scope,
+                    enabled=True,
+                    severity=Severity(domain_rule.severity),
+                    updated_at=now,
+                    evaluations_24h=0,
+                    violations_24h=0,
+                )
+                session.add(domain_policy)
+                await session.flush()
+
+                domain_version = PolicyVersion(
+                    policy_id=domain_policy.id,
+                    version=domain_rule.version,
+                    rule=domain_rule.rule,
+                    note=domain_rule.note or f"Shipped with the {pack.label} pack.",
+                    created_by="seed",
+                    created_at=now,
+                )
+                session.add(domain_version)
+                await session.flush()
+                domain_policy.active_version_id = domain_version.id
+
         session.add_all(build_decisions(now=now))
+
+        # One agent per vertical, so a domain field has decisions that
+        # actually carry it — a vocabulary entry nobody can demonstrate is
+        # not a governed domain.
+        domain_agents, domain_decisions = build_domain_agents(now=now)
+        session.add_all(domain_agents)
+        await session.flush()
+        session.add_all(domain_decisions)
 
         # Ten agents doing one job, so the benchmark screen has a real cohort
         # to rank rather than a population of one per capability.

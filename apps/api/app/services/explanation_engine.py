@@ -26,11 +26,11 @@ from dataclasses import dataclass, field
 
 from app.models.enums import DecisionOutcome
 from app.services.policy_engine import (
-    EVALUABLE_FIELDS,
     Condition,
     ConditionResult,
     Effect,
     Operator,
+    evaluable_fields,
 )
 
 #: Fields a counterfactual may suggest changing, with their valid range and
@@ -128,7 +128,7 @@ _DIRECTION = {
 
 
 def _step_for(field_name: str) -> float:
-    spec = EVALUABLE_FIELDS.get(field_name)
+    spec = evaluable_fields().get(field_name)
     if spec is None:
         return 1
     return 1 if spec.kind is int else 0.01
@@ -146,7 +146,7 @@ def condition_boundary(condition: Condition, actual: float | None) -> Counterfac
     if not isinstance(condition.value, int | float) or isinstance(condition.value, bool):
         return None
 
-    spec = EVALUABLE_FIELDS.get(condition.field)
+    spec = evaluable_fields().get(condition.field)
     label = spec.label if spec else condition.field
     step = _step_for(condition.field)
     threshold = _BOUNDARY[condition.operator](float(condition.value), step)
@@ -222,7 +222,7 @@ def model_counterfactual(
     if current is None:
         return None
 
-    spec = EVALUABLE_FIELDS.get(field_name)
+    spec = evaluable_fields().get(field_name)
     label = spec.label if spec else field_name
 
     # Walk outward in both directions so the *nearest* flip is found, not
