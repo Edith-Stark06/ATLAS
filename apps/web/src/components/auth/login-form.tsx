@@ -19,6 +19,34 @@ function safeRedirect(next: string | undefined): string {
   return next;
 }
 
+/**
+ * The bootstrap account from `app/core/config.py`, shown as a hint so a demo
+ * does not stall on remembering it.
+ *
+ * Gated on `NODE_ENV` alone, and deliberately nothing else. The bundler
+ * inlines that to the literal `"production"`, so in a production build this
+ * whole branch — the strings included — is dead code and gets stripped. An
+ * earlier version added a `NEXT_PUBLIC_` opt-in for demo builds; because that
+ * value is not statically known, elimination stopped happening and both
+ * credentials shipped in the JS. Not rendered, but downloadable by anyone,
+ * which is the thing this comment claimed to prevent.
+ *
+ * A production demo that wants the hint should read it from the API at
+ * runtime, not bake it into the bundle.
+ */
+const SHOW_DEMO_CREDENTIALS = process.env.NODE_ENV !== "production";
+
+const DEMO_EMAIL = "admin@atlas.local";
+const DEMO_PASSWORD = "atlas-dev-admin";
+
+function Hint({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="text-status-label text-outline">
+      {label} <span className="font-mono text-on-surface-variant">{value}</span>
+    </span>
+  );
+}
+
 export function LoginForm({ next, expired }: { next?: string; expired?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -75,6 +103,7 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+          {SHOW_DEMO_CREDENTIALS && <Hint label="Demo" value={DEMO_EMAIL} />}
         </label>
 
         <label className="flex flex-col gap-1.5">
@@ -90,6 +119,7 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          {SHOW_DEMO_CREDENTIALS && <Hint label="Demo" value={DEMO_PASSWORD} />}
         </label>
 
         {error && (
