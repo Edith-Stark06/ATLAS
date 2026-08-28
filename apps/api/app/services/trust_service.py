@@ -63,7 +63,11 @@ async def load_snapshots(
 
 
 async def evaluate_agent(
-    db: AsyncSession, agent_id: str, *, now: datetime | None = None
+    db: AsyncSession,
+    agent_id: str,
+    *,
+    now: datetime | None = None,
+    include_ml_anomaly: bool = False,
 ) -> tuple[Agent, TrustEvaluation, list[TrustSnapshot], MLAnomalyResult | None] | None:
     """Evaluate an agent without persisting anything.
 
@@ -71,6 +75,15 @@ async def evaluate_agent(
     artifacts; falls back to the Phase 3 heuristic otherwise (see
     trust_engine.evaluate — this function never raises for a missing model,
     it simply passes ml_score=None through).
+
+    `include_ml_anomaly` is off by default because it is the expensive part
+    and most callers throw it away. Detecting it fits a fresh Isolation Forest
+    on that agent's own history — around 340ms — which is fine for one agent
+    and ruinous for a list. The estate overview was paying it for all
+    nineteen agents on every request and then reporting `evaluation.drift`,
+    the heuristic measure, instead: about six seconds of work whose result was
+    never read. Only the per-agent detail view surfaces it, so only that view
+    asks for it.
     """
     agent = await _load_agent(db, agent_id)
     if agent is None:
@@ -89,12 +102,13 @@ async def evaluate_agent(
         prediction = trust_model.predict(current_factors)
         ml_score, ml_attribution = prediction.score, prediction.attribution
 
-        history = [_factor_dict(snap.factors) for snap in snapshots if snap.factors] + [
-            current_factors
-        ]
-        anomaly = trust_model.detect_anomaly(history)
-        if anomaly is not None:
-            ml_anomaly = MLAnomalyResult(detected=anomaly[0], score=anomaly[1])
+        if include_ml_anomaly:
+            history = [_factor_dict(snap.factors) for snap in snapshots if snap.factors] + [
+                current_factors
+            ]
+            anomaly = trust_model.detect_anomaly(history)
+            if anomaly is not None:
+                ml_anomaly = MLAnomalyResult(detected=anomaly[0], score=anomaly[1])
 
     evaluation = trust_engine.evaluate(
         agent, decisions, snapshots, now=now, ml_score=ml_score, ml_attribution=ml_attribution

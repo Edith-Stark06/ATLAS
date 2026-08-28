@@ -38,8 +38,17 @@ BANDS = [
 ]
 
 
-async def _read_evaluation(db: AsyncSession, agent_id: str) -> TrustEvaluationRead | None:
-    loaded = await trust_service.evaluate_agent(db, agent_id)
+async def _read_evaluation(
+    db: AsyncSession, agent_id: str, *, include_ml_anomaly: bool = False
+) -> TrustEvaluationRead | None:
+    """Build one agent's evaluation response.
+
+    `include_ml_anomaly` is opt-in because fitting the per-agent anomaly
+    detector costs ~340ms and only the detail view renders the result.
+    """
+    loaded = await trust_service.evaluate_agent(
+        db, agent_id, include_ml_anomaly=include_ml_anomaly
+    )
     if loaded is None:
         return None
 
@@ -110,7 +119,8 @@ async def trust_overview(db: AsyncSession = Depends(get_db)) -> TrustOverviewRea
 
 @router.get("/agents/{agent_id}", response_model=TrustEvaluationRead)
 async def agent_trust(agent_id: str, db: AsyncSession = Depends(get_db)) -> TrustEvaluationRead:
-    evaluation = await _read_evaluation(db, agent_id)
+    # The one caller that renders the ML anomaly, so the one that pays for it.
+    evaluation = await _read_evaluation(db, agent_id, include_ml_anomaly=True)
     if evaluation is None:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
     return evaluation
