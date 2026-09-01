@@ -387,7 +387,7 @@ Five directions raised, mapped to status:
 | --- | --- | --- |
 | 1 | Rank N agents doing the same job (security/speed/efficiency) | ✅ **Phase 11** |
 | 2 | Mechanism ranking — what changed that moved the score | ✅ **Phase 11** |
-| 3 | Verticals: mutual funds, portfolio mgmt, travel (safety/privacy), booking | ❌ engine is domain-neutral; seed is generic finance |
+| 3 | Verticals: mutual funds, portfolio mgmt, travel (safety/privacy), booking | ✅ **Phase 13** |
 | 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ❌ whole new action domain |
 | 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ✅ **Phase 12** |
 
