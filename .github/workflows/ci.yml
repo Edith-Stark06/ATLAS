@@ -51,10 +51,18 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
 
-      # No `python -m app.ml.train` here: artifacts are gitignored by design
-      # (see .gitignore and docs/PROJECT_MEMORY.md) and the heuristic
-      # fallback is the documented, tested path when no model is present.
       - run: python -m alembic upgrade head
+      # Not optional for CI, despite the README's "optional; heuristic
+      # fallback exists" framing for local dev: that fallback covers
+      # trust-score evaluation (trust_service.evaluate_agent), but
+      # POST /trust/simulate has no such fallback and 503s by design
+      # without a trained artifact (see app/api/routes/trust.py), and
+      # several simulation tests assert model-backed behaviour
+      # specifically. Every prior run of this suite had a trained model
+      # sitting around from local dev — this was never actually exercised
+      # cold until CI's first run caught it. ~15s, order matches the
+      # README (seed runs after training).
+      - run: python -m app.ml.train
       - run: python -m app.seed --reset
       - run: pytest -q
 
