@@ -1,6 +1,7 @@
 # ATLAS — Project Memory
 
-Complete context handoff. Written 2026-08-24, updated against Phase 12.
+Complete context handoff. Written 2026-08-24, updated through Phase 15
+(2026-09-01).
 
 Repo: https://github.com/Edith-Stark06/ATLAS · branch `main` · local path
 `D:\Documents\Projects\ATLAS`
@@ -337,10 +338,35 @@ boundary is never labelled exact.
   container) and, as of 2026-09-01, web (`docker build -f apps/web/Dockerfile
   .` from repo root; container reports healthy, `GET /` and `GET /login`
   both 200).
+- CI (`.github/workflows/ci.yml`) runs on every push to `main` and every
+  pull request — lint, format-check, full test suite, web build/typecheck,
+  both Docker images, and a gitleaks secrets scan.
+- Structured JSON logging with per-request correlation IDs, and Redis-backed
+  rate limiting (on by default; the test suite explicitly opts out — see
+  Phase 15 below), are both live.
 
 ### Known open issues
 
 1. **Ledger `append` is not multi-writer safe** (documented in code).
+2. **`GET /ledger/verify` reads the entire chain unbounded**
+   (`ledger_service.load_chain`) — verification genuinely needs the whole
+   chain to check hash links, so `limit`/`offset` doesn't apply here the way
+   it did for the endpoints in stream 6 below. Fixing this means an
+   incremental/checkpointed verification algorithm — a Phase 16 scale
+   concern, deliberately not attempted in Phase 15.
+3. **`/trust/overview`'s N sequential per-agent round trips are not
+   parallelized.** Each is now cheap after Phase 15's `_load_decisions` fix
+   (window-filtered instead of unbounded), but true parallelization needs
+   one `AsyncSession` per concurrent task — a single `AsyncSession` isn't
+   safe for concurrent use — which is real added complexity better done
+   deliberately in Phase 16, not rushed into the pagination pass.
+4. **No equivalent of the `JWT_SECRET`/`BOOTSTRAP_ADMIN_PASSWORD` production
+   guardrail exists for `DATABASE_URL`/`REDIS_URL`** — see
+   `docs/operations/secrets.md`. Left open rather than guessed at, since
+   "insecure" for a connection string needs a deliberate definition.
+5. **No self-serve password-change flow.** Rotating the bootstrap admin
+   password today means minting a replacement admin via `POST /auth/users`
+   and retiring the original — see `docs/operations/secrets.md`.
 
 ### Resolved (kept for history — both were live for a while, worth knowing why)
 
@@ -376,6 +402,56 @@ boundary is never labelled exact.
      entries (dependency-closure walk, not a wholesale relock — that would
      have also silently bumped ~50 unrelated transitive packages). Diff is
      purely additive. Commit `80a3008`.
+
+### Phase 15 — operational readiness (2026-09-01)
+
+Feature build (Phases 0–13) was already complete; this closed the gap
+between "works" and "operationally ready." Six streams, all shipped and
+verified against the full suite:
+
+1. **Structured logging + request correlation** — every log line is now one
+   JSON shape (`app/core/logging.py`); `RequestContextMiddleware`
+   (`app/core/middleware.py`) assigns/propagates an `X-Request-ID` and logs
+   one line per request. Commit `4566ba4`.
+2. **Rate limiting** — Redis-backed fixed window
+   (`app/services/rate_limiter.py`), finally using the Redis that's been
+   provisioned in both compose files since Phase 0 and never once imported
+   by application code before this. Tighter budget on `POST /auth/login`,
+   fails open on a Redis error. `/health` now checks Redis too. Found and
+   fixed a real bug along the way: a naive `@lru_cache` Redis singleton
+   broke under this repo's own test suite, which legitimately runs more
+   than one independent `TestClient(app)` (each its own event loop) —
+   `app/core/redis.py` now rebinds when the running loop changes instead of
+   caching forever. Commit `4566ba4`.
+3. **CI** — `.github/workflows/ci.yml`: api (postgres+redis service
+   containers, ruff, pytest), web (lint, typecheck, build), docker (builds
+   both Dockerfiles — a direct regression guard against the Phase 14 bug
+   where the web image had never once been built), secrets-scan (gitleaks).
+   Commit `2d5f363`.
+4. **Backup/restore** — `infra/scripts/backup.sh`/`restore.sh` +
+   `docs/operations/backup-restore.md`. Postgres only, deliberately — Redis
+   is derived/short-lived state, ML artifacts are regenerable build output.
+   Commit `2d5f363`.
+5. **Secrets** — `docs/operations/secrets.md`: generation/rotation for each
+   secret, what the `config.py` guardrail does and doesn't cover, gitleaks
+   in CI as the enforcement half. Commit `2d5f363`.
+6. **Pagination** — `limit`/`offset` on every list endpoint that grows with
+   real usage (`/agents`, `/policies`, `/simulations`, `/policy/policies`,
+   `/auth/users`, `/auth/api-keys`; `/decisions` already had `limit`, added
+   `offset`), plus `X-Total-Count` response headers rather than a
+   body-shape change. Real fix, not just a cap:
+   `trust_service._load_decisions` now filters server-side by the same
+   7-day anomaly window `compute_anomaly_penalty` already uses internally,
+   instead of loading an agent's entire decision history to throw away
+   everything past a week — provably wasted work, not a heuristic. Found
+   `GET /simulations` scales 1:1 with decisions (not seed-scale small like
+   the others), which broke `test_rebuild_covers_every_decision`'s old
+   assumption of an unbounded response; fixed the test to read
+   `SimulationRun` directly rather than loosen the cap. Deliberately left
+   unbounded, see Known open issues: `ledger_service.load_chain` (needs
+   whole-chain reads to verify hash links) and the `/trust/overview` N+1
+   query pattern (needs one `AsyncSession` per task to parallelize safely).
+   Commit `97ab9cd`.
 
 ---
 
