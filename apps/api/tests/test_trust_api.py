@@ -6,6 +6,47 @@ Skips when Postgres is unreachable; see tests/test_governance.py.
 import pytest
 
 
+@pytest.fixture
+async def _recompute_leaves_no_residue():
+    """`/trust/recompute` commits real rows — that persistence is the exact
+    thing the two tests using this fixture exist to prove. Left alone, every
+    run adds one flat TrustSnapshot per agent per call, permanently, to the
+    same dev database every other test run also shares. `load_snapshots`
+    only keeps the newest 40 per agent, so enough accumulated flat entries
+    eventually crowd the seeded decline out of agt-expense-02's window —
+    `test_declining_agent_is_flagged_as_drifting` then starts failing purely
+    because the suite has been run enough times, not because anything is
+    wrong. Same principle as test_editing_a_stored_entry_breaks_verification
+    in test_decision_pipeline.py: prove the behaviour, then leave no trace.
+    """
+    from sqlalchemy import select
+
+    from app.core.database import AsyncSessionLocal
+    from app.models import TrustSnapshot
+
+    async with AsyncSessionLocal() as session:
+        before_ids = set(
+            (
+                await session.execute(
+                    select(TrustSnapshot.id).where(TrustSnapshot.reason == "recompute")
+                )
+            ).scalars()
+        )
+
+    yield
+
+    async with AsyncSessionLocal() as session:
+        new_rows = (
+            await session.execute(
+                select(TrustSnapshot).where(TrustSnapshot.reason == "recompute")
+            )
+        ).scalars()
+        for row in new_rows:
+            if row.id not in before_ids:
+                await session.delete(row)
+        await session.commit()
+
+
 def test_score_is_reproducible_from_its_source(client):
     """The headline number must be reproducible from its own parts, whichever
     source produced it — the heuristic path (base - penalty) when no trained
@@ -114,7 +155,7 @@ def test_watchlist_is_ordered_worst_drift_first(client):
     assert deltas == sorted(deltas)
 
 
-def test_recompute_records_a_snapshot_for_every_agent(client):
+def test_recompute_records_a_snapshot_for_every_agent(client, _recompute_leaves_no_residue):
     before = len(client.get("/api/v1/trust/agents/agt-travel-01").json()["history"])
 
     response = client.post("/api/v1/trust/recompute")
@@ -127,7 +168,7 @@ def test_recompute_records_a_snapshot_for_every_agent(client):
     assert after == before + 1
 
 
-def test_recompute_is_stable_when_nothing_changed(client):
+def test_recompute_is_stable_when_nothing_changed(client, _recompute_leaves_no_residue):
     """Two consecutive recomputes over unchanged inputs must agree — the score
     is a function of stored data, not of when it was asked for."""
     first = {
