@@ -165,7 +165,7 @@ def test_an_action_without_an_agent_still_gets_a_verdict(client):
 # --- rebuild -----------------------------------------------------------------
 
 
-def test_rebuild_covers_every_decision(client):
+async def test_rebuild_covers_every_decision(client):
     """Rebuild is keyed on decisions, not on whatever runs happen to exist —
     a seed that shipped simulations for only some decisions ends up with a
     prediction attached to all of them.
@@ -173,15 +173,32 @@ def test_rebuild_covers_every_decision(client):
     Asserted as containment rather than an exact count: `/decisions` is
     paginated, so comparing its length to a full rebuild would silently start
     failing once the pipeline has written more than one page of decisions.
+
+    The containment check reads `SimulationRun` directly rather than through
+    `GET /simulations` — that endpoint is paginated too (same reason as
+    `/decisions`, and for the same underlying volume: one run per decision,
+    already well past a sane page size on this seed), so nothing short of
+    the source table itself can promise every run is accounted for.  Same
+    pattern as test_editing_a_stored_entry_breaks_verification in
+    test_decision_pipeline.py.
     """
+    from sqlalchemy import select
+
+    from app.core.database import AsyncSessionLocal
+    from app.models import SimulationRun
+
     response = client.post("/api/v1/simulation/rebuild")
     assert response.status_code == 200
 
     decisions = client.get("/api/v1/decisions", params={"limit": 200}).json()
-    runs = client.get("/api/v1/simulations").json()
+
+    async with AsyncSessionLocal() as session:
+        run_decision_ids = set(
+            (await session.execute(select(SimulationRun.decision_id))).scalars()
+        )
 
     assert response.json()["rebuilt"] >= len(decisions)
-    assert {d["id"] for d in decisions} <= {r["decisionId"] for r in runs}
+    assert {d["id"] for d in decisions} <= run_decision_ids
 
 
 def test_rebuilt_runs_carry_model_probabilities(client):

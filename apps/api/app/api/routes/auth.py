@@ -1,10 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import RequireAdmin, current_actor
+from app.api.pagination import set_total_count
 from app.core import security
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -74,8 +75,16 @@ async def me(actor: Actor = Depends(current_actor)) -> ActorRead:
 
 
 @router.get("/users", response_model=list[UserRead], dependencies=[RequireAdmin])
-async def list_users(db: AsyncSession = Depends(get_db)) -> list[User]:
-    result = await db.execute(select(User).order_by(User.email))
+async def list_users(
+    response: Response,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[User]:
+    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+    set_total_count(response, total)
+
+    result = await db.execute(select(User).order_by(User.email).limit(limit).offset(offset))
     return list(result.scalars().all())
 
 
@@ -107,8 +116,18 @@ async def create_user(request: CreateUserRequest, db: AsyncSession = Depends(get
 
 
 @router.get("/api-keys", response_model=list[ApiKeyRead], dependencies=[RequireAdmin])
-async def list_api_keys(db: AsyncSession = Depends(get_db)) -> list[ApiKey]:
-    result = await db.execute(select(ApiKey).order_by(ApiKey.created_at.desc()))
+async def list_api_keys(
+    response: Response,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[ApiKey]:
+    total = (await db.execute(select(func.count()).select_from(ApiKey))).scalar_one()
+    set_total_count(response, total)
+
+    result = await db.execute(
+        select(ApiKey).order_by(ApiKey.created_at.desc()).limit(limit).offset(offset)
+    )
     return list(result.scalars().all())
 
 

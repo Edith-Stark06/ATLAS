@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.ml import models as ml_models
 from app.models import Agent, Decision, TrustSnapshot
 from app.services import trust_engine
-from app.services.trust_engine import TrustEvaluation
+from app.services.trust_engine import ANOMALY_WINDOW, TrustEvaluation
 
 SNAPSHOT_HISTORY_LIMIT = 40
 
@@ -42,9 +42,25 @@ async def _load_agent(db: AsyncSession, agent_id: str) -> Agent | None:
     return result.scalar_one_or_none()
 
 
-async def _load_decisions(db: AsyncSession, agent_id: str) -> list[Decision]:
+async def _load_decisions(
+    db: AsyncSession, agent_id: str, *, now: datetime | None = None
+) -> list[Decision]:
+    """Decisions within the anomaly window — not this agent's whole history.
+
+    `trust_engine.evaluate`'s only use of this list is
+    `compute_anomaly_penalty`, which itself discards anything older than
+    `ANOMALY_WINDOW` (7 days). Loading every decision an agent has ever made
+    just to throw away all but the last week of it was pure waste that grew
+    without bound as an agent racked up history — one seeded agent already
+    has 310. Filtering here instead of in Python makes the query cost scale
+    with weekly volume, not lifetime volume, for every caller including
+    /trust/overview's per-agent loop.
+    """
+    cutoff = (now or datetime.now(UTC)) - ANOMALY_WINDOW
     result = await db.execute(
-        select(Decision).where(Decision.agent_id == agent_id).order_by(Decision.decided_at)
+        select(Decision)
+        .where(Decision.agent_id == agent_id, Decision.decided_at >= cutoff)
+        .order_by(Decision.decided_at)
     )
     return list(result.unique().scalars().all())
 
@@ -89,7 +105,11 @@ async def evaluate_agent(
     if agent is None:
         return None
 
-    decisions = await _load_decisions(db, agent_id)
+    # Same `now` the eventual compute_anomaly_penalty(decisions, now=now)
+    # call uses (trust_engine.evaluate below) — the window filtered here and
+    # the window it re-checks in Python must agree, or a caller-supplied
+    # `now` (tests use this to simulate specific times) would desync them.
+    decisions = await _load_decisions(db, agent_id, now=now)
     snapshots = await load_snapshots(db, agent_id)
 
     ml_score = None

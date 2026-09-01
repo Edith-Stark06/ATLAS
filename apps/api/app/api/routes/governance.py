@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import set_total_count
 from app.core.database import get_db
 from app.models import (
     ActivityItem,
@@ -20,13 +21,30 @@ from app.schemas.governance import (
 
 router = APIRouter()
 
+#: Default/max for the estate-wide list endpoints below — comfortably above
+#: every real count today (16 seeded agents, a handful of policies), so
+#: default behaviour for current data is unchanged. A real bound for
+#: whichever of these grows first, not a UX feature yet.
+DEFAULT_LIST_LIMIT = 200
+MAX_LIST_LIMIT = 1000
+
 
 # --- Agents -----------------------------------------------------------------
 
 
 @router.get("/agents", response_model=list[AgentRead], tags=["agents"])
-async def list_agents(db: AsyncSession = Depends(get_db)) -> list[Agent]:
-    result = await db.execute(select(Agent).order_by(Agent.trust_score.desc()))
+async def list_agents(
+    response: Response,
+    limit: int = Query(DEFAULT_LIST_LIMIT, ge=1, le=MAX_LIST_LIMIT),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[Agent]:
+    total = (await db.execute(select(func.count()).select_from(Agent))).scalar_one()
+    set_total_count(response, total)
+
+    result = await db.execute(
+        select(Agent).order_by(Agent.trust_score.desc()).limit(limit).offset(offset)
+    )
     return list(result.scalars().all())
 
 
@@ -43,10 +61,17 @@ async def get_agent(agent_id: str, db: AsyncSession = Depends(get_db)) -> Agent:
 
 @router.get("/decisions", response_model=list[DecisionRead], tags=["decisions"])
 async def list_decisions(
+    response: Response,
     limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[Decision]:
-    result = await db.execute(select(Decision).order_by(Decision.decided_at.desc()).limit(limit))
+    total = (await db.execute(select(func.count()).select_from(Decision))).scalar_one()
+    set_total_count(response, total)
+
+    result = await db.execute(
+        select(Decision).order_by(Decision.decided_at.desc()).limit(limit).offset(offset)
+    )
     return list(result.unique().scalars().all())
 
 
@@ -63,9 +88,20 @@ async def get_decision(decision_id: str, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.get("/policies", response_model=list[PolicyRead], tags=["policies"])
-async def list_policies(db: AsyncSession = Depends(get_db)) -> list[Policy]:
+async def list_policies(
+    response: Response,
+    limit: int = Query(DEFAULT_LIST_LIMIT, ge=1, le=MAX_LIST_LIMIT),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[Policy]:
+    total = (await db.execute(select(func.count()).select_from(Policy))).scalar_one()
+    set_total_count(response, total)
+
     result = await db.execute(
-        select(Policy).order_by(Policy.enabled.desc(), Policy.violations_24h.desc())
+        select(Policy)
+        .order_by(Policy.enabled.desc(), Policy.violations_24h.desc())
+        .limit(limit)
+        .offset(offset)
     )
     return list(result.scalars().all())
 
@@ -74,8 +110,18 @@ async def list_policies(db: AsyncSession = Depends(get_db)) -> list[Policy]:
 
 
 @router.get("/simulations", response_model=list[SimulationRunRead], tags=["simulations"])
-async def list_simulations(db: AsyncSession = Depends(get_db)) -> list[SimulationRun]:
-    result = await db.execute(select(SimulationRun).order_by(SimulationRun.ran_at.desc()))
+async def list_simulations(
+    response: Response,
+    limit: int = Query(DEFAULT_LIST_LIMIT, ge=1, le=MAX_LIST_LIMIT),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[SimulationRun]:
+    total = (await db.execute(select(func.count()).select_from(SimulationRun))).scalar_one()
+    set_total_count(response, total)
+
+    result = await db.execute(
+        select(SimulationRun).order_by(SimulationRun.ran_at.desc()).limit(limit).offset(offset)
+    )
     return list(result.scalars().all())
 
 

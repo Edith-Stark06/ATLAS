@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import domains
 from app.api.deps import RequireAdmin
+from app.api.pagination import set_total_count
 from app.core.database import get_db
 from app.models import Agent, Policy
 from app.schemas.policy import (
@@ -118,12 +119,22 @@ async def rule_vocabulary(db: AsyncSession = Depends(get_db)) -> RuleVocabularyR
 
 
 @router.get("/policies", response_model=list[PolicyDetailRead])
-async def list_policies(db: AsyncSession = Depends(get_db)) -> list[PolicyDetailRead]:
+async def list_policies(
+    response: Response,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[PolicyDetailRead]:
     """Every policy with its active rule — enabled first, then by name."""
+    total = (await db.execute(select(func.count()).select_from(Policy))).scalar_one()
+    set_total_count(response, total)
+
     result = await db.execute(
         select(Policy)
         .options(selectinload(Policy.active_version))
         .order_by(Policy.enabled.desc(), Policy.name)
+        .limit(limit)
+        .offset(offset)
     )
     return [_detail(p) for p in result.scalars().all()]
 
