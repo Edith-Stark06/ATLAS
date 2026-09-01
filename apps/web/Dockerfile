@@ -22,8 +22,13 @@ FROM node:22-alpine AS build
 
 WORKDIR /repo
 
+# Only one workspace exists (apps/web), so npm ci hoists every dependency
+# into the root node_modules and never creates a per-workspace one — Node's
+# module resolution walks up from apps/web to find it there regardless. An
+# earlier version of this Dockerfile also copied apps/web/node_modules,
+# which doesn't exist after a clean `npm ci` and made every build of this
+# image fail before it ever produced a runnable one.
 COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 
 # Baked in at build time: NEXT_PUBLIC_* values are inlined into the client
