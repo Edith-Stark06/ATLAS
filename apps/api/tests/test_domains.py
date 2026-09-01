@@ -57,9 +57,7 @@ def test_a_pack_cannot_shadow_a_core_field():
     """Core wins a name clash, so a pack redefining `risk_score` would change
     what every existing rule means without touching any of them."""
     for pack in domains.all_packs():
-        assert not (set(pack.fields) & set(CORE_FIELDS)), (
-            f"{pack.key} redefines a core field"
-        )
+        assert not (set(pack.fields) & set(CORE_FIELDS)), f"{pack.key} redefines a core field"
 
 
 def test_the_vocabulary_is_core_plus_every_pack():
@@ -121,9 +119,7 @@ def test_an_absent_domain_value_is_none_not_zero():
 def concentration_rule():
     return parse_rule(
         {
-            "conditions": [
-                {"field": "portfolio_concentration_pct", "operator": "gt", "value": 25}
-            ],
+            "conditions": [{"field": "portfolio_concentration_pct", "operator": "gt", "value": 25}],
             "combinator": "all",
             "effect": "block",
             "applies_to": ["Mutual Funds"],

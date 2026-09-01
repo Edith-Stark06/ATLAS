@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      # Same images as infra/docker-compose.yml, so CI exercises the same
+      # dependency versions local dev runs against.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas_ci_password
+          POSTGRES_DB: atlas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://atlas:atlas_ci_password@localhost:5432/atlas
+      REDIS_URL: redis://localhost:6379/0
+      # Passes the length guardrail in app/core/config.py but ENVIRONMENT
+      # stays "development" (the default) — this is a test run, not a
+      # deployment, and shouldn't trip the insecure-production check.
+      JWT_SECRET: ci-only-jwt-secret-this-is-not-a-real-deployment-x7f2
+      BOOTSTRAP_ADMIN_PASSWORD: atlas-ci-admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e ".[dev]"
+
+      - run: ruff check .
+      - run: ruff format --check .
+
+      # No `python -m app.ml.train` here: artifacts are gitignored by design
+      # (see .gitignore and docs/PROJECT_MEMORY.md) and the heuristic
+      # fallback is the documented, tested path when no model is present.
+      - run: python -m alembic upgrade head
+      - run: python -m app.seed --reset
+      - run: pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches apps/web/Dockerfile's node:22-alpine, not just the
+          # >=20 floor in package.json's engines field.
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint --workspace apps/web
+      - run: npm run typecheck --workspace apps/web
+      - run: npm run build --workspace apps/web
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      # A direct regression guard against exactly the bug fixed 2026-09-01:
+      # apps/web/Dockerfile existed but had never actually been built, and
+      # failed unconditionally the first time anyone tried. Building both
+      # images here means that can't happen silently again.
+      - run: docker build -f apps/api/Dockerfile -t atlas-api:ci apps/api
+      - run: docker build -f apps/web/Dockerfile -t atlas-web:ci .
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

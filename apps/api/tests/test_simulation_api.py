@@ -193,9 +193,7 @@ async def test_rebuild_covers_every_decision(client):
     decisions = client.get("/api/v1/decisions", params={"limit": 200}).json()
 
     async with AsyncSessionLocal() as session:
-        run_decision_ids = set(
-            (await session.execute(select(SimulationRun.decision_id))).scalars()
-        )
+        run_decision_ids = set((await session.execute(select(SimulationRun.decision_id))).scalars())
 
     assert response.json()["rebuilt"] >= len(decisions)
     assert {d["id"] for d in decisions} <= run_decision_ids

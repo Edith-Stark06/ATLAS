@@ -200,16 +200,12 @@ def test_what_atlas_cannot_answer_is_declared(client: TestClient):
 def test_a_shrink_multiplier_is_refused(client: TestClient):
     """Scaling down is a different question with the same shape; answering it
     silently would be wrong."""
-    response = client.post(
-        "/api/v1/capacity/plan", json={"capability": COHORT, "multiplier": 0.5}
-    )
+    response = client.post("/api/v1/capacity/plan", json={"capability": COHORT, "multiplier": 0.5})
     assert response.status_code == 422
 
 
 def test_an_absurd_multiplier_is_refused(client: TestClient):
     """Every rate in the plan was measured at today's volume. Past a point the
     extrapolation is fantasy."""
-    response = client.post(
-        "/api/v1/capacity/plan", json={"capability": COHORT, "multiplier": 5000}
-    )
+    response = client.post("/api/v1/capacity/plan", json={"capability": COHORT, "multiplier": 5000})
     assert response.status_code == 422

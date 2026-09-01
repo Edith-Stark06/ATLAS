@@ -199,9 +199,7 @@ def test_a_strong_agent_is_offered_more_work():
 
 def test_an_unproven_agent_is_observed_not_planned_on():
     """Six decisions is not a throughput measurement."""
-    result = plan_agent(
-        agent(decisions=6, thin_evidence=True), window_days=30, growth_share=999.0
-    )
+    result = plan_agent(agent(decisions=6, thin_evidence=True), window_days=30, growth_share=999.0)
 
     assert result.action == "observe"
     assert result.recommended_daily == result.current_daily

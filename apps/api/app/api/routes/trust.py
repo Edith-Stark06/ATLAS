@@ -46,9 +46,7 @@ async def _read_evaluation(
     `include_ml_anomaly` is opt-in because fitting the per-agent anomaly
     detector costs ~340ms and only the detail view renders the result.
     """
-    loaded = await trust_service.evaluate_agent(
-        db, agent_id, include_ml_anomaly=include_ml_anomaly
-    )
+    loaded = await trust_service.evaluate_agent(db, agent_id, include_ml_anomaly=include_ml_anomaly)
     if loaded is None:
         return None
 

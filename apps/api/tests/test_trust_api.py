@@ -37,9 +37,7 @@ async def _recompute_leaves_no_residue():
 
     async with AsyncSessionLocal() as session:
         new_rows = (
-            await session.execute(
-                select(TrustSnapshot).where(TrustSnapshot.reason == "recompute")
-            )
+            await session.execute(select(TrustSnapshot).where(TrustSnapshot.reason == "recompute"))
         ).scalars()
         for row in new_rows:
             if row.id not in before_ids:

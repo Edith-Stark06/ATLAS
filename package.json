@@ -11,6 +11,7 @@
     "build": "npm run build --workspace=@atlas/web",
     "start": "npm run start --workspace=@atlas/web",
     "lint": "npm run lint --workspace=@atlas/web",
+    "typecheck": "npm run typecheck --workspace=@atlas/web",
     "db:up": "docker compose -f infra/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker-compose.yml down",
     "db:logs": "docker compose -f infra/docker-compose.yml logs -f"
