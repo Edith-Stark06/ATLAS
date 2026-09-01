@@ -9,6 +9,19 @@ from app.core.compat import configure_event_loop
 
 configure_event_loop()
 
+import os  # noqa: E402 - must come after the loop shim
+
+# Rate limiting is on by default in every real deployment (see
+# Settings.rate_limit_enabled), and stays that way here unless a test
+# explicitly wants it — but the suite itself is one high-volume, trusted
+# client hammering a single TestClient "IP" hundreds of times per run, which
+# is exactly the shape rate limiting exists to catch when it's *not* trusted.
+# `setdefault` so a test that does want it exercised (see
+# test_rate_limiter.py, which talks to Redis directly rather than through
+# the app) isn't fighting this. Must run before `app.main` is imported below
+# — Settings are read once and cached (`get_settings`'s `lru_cache`).
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
+
 from collections.abc import Iterator  # noqa: E402 - must come after the loop shim
 
 import pytest  # noqa: E402

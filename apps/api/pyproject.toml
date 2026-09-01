@@ -16,6 +16,8 @@ dependencies = [
     "joblib>=1.4",
     "shap>=0.46",
     "pyjwt>=2.10",
+    # Async client for the rate limiter's shared counters (app/services/rate_limiter.py).
+    "redis>=5.0",
     # Argon2id for passwords. Deliberately a slow, memory-hard hash: passwords
     # are low-entropy and human-chosen, so the only defence against an offline
     # attack on a stolen table is making each guess expensive.

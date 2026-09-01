@@ -67,6 +67,17 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str = "admin@atlas.local"
     bootstrap_admin_password: str = "atlas-dev-admin"
 
+    # --- rate limiting --------------------------------------------------------
+
+    #: On by default — a deployment has to opt out, not opt in. The test
+    #: suite is the one deliberate exception (see tests/conftest.py): 479
+    #: tests against one TestClient "IP" is a trusted, high-volume client,
+    #: not the abuse this exists to catch.
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 300
+    #: Tighter budget for login specifically — the classic brute-force target.
+    rate_limit_login_per_minute: int = 10
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
