@@ -329,21 +329,53 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **479 tests pass on a fresh seed.** Lint clean (ruff + eslint), typecheck
-  clean, production build clean.
-- API Docker image built and verified end-to-end (runs non-root, connects to
-  Postgres, serves login, config guardrail fires inside the container).
+- **479 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below.
+- Lint clean (ruff + eslint), typecheck clean, production build clean.
+- Both Docker images built and verified end-to-end: API (runs non-root,
+  connects to Postgres, serves login, config guardrail fires inside the
+  container) and, as of 2026-09-01, web (`docker build -f apps/web/Dockerfile
+  .` from repo root; container reports healthy, `GET /` and `GET /login`
+  both 200).
 
 ### Known open issues
 
-1. **Suite is not repeatable without reseeding.** A second consecutive run
-   fails `test_declining_agent_is_flagged_as_drifting`: other tests call
-   `/trust/recompute`, which appends flat snapshots that bury the seeded
-   decline. Verified 2026-08-24 — still present. Needs transactional test
-   isolation. *Workaround: `python -m app.seed --reset` before each run.*
-2. **Web Docker image never built.** The API one was verified; the Next.js
-   image's Dockerfile is written but unexercised.
-3. **Ledger `append` is not multi-writer safe** (documented in code).
+1. **Ledger `append` is not multi-writer safe** (documented in code).
+
+### Resolved (kept for history — both were live for a while, worth knowing why)
+
+1. ~~Suite not repeatable without reseeding~~ — fixed 2026-09-01. Root cause:
+   `test_recompute_records_a_snapshot_for_every_agent` and
+   `test_recompute_is_stable_when_nothing_changed` call the real
+   `POST /trust/recompute`, which commits one live snapshot per agent per
+   call — real persistence against the shared dev DB, which is the point of
+   those two tests. Nothing rolled those rows back, so they accumulated
+   across every test run anyone ever did, and `assess_drift`'s 40-snapshot
+   window eventually filled with enough flat "nothing changed" entries to
+   crowd the seeded decline for `agt-expense-02` out of it —
+   `test_declining_agent_is_flagged_as_drifting` then failed for reasons
+   that had nothing to do with correctness. Fixed with a
+   `_recompute_leaves_no_residue` fixture (`tests/test_trust_api.py`) that
+   deletes exactly the rows those two tests add — same "prove it, then
+   leave no trace" principle as
+   `test_editing_a_stored_entry_breaks_verification` in
+   `test_decision_pipeline.py`. Commit `c316b19`.
+2. ~~Web Docker image never built~~ — fixed 2026-09-01, two real bugs found
+   by actually building it for the first time:
+   - `apps/web/Dockerfile` copied `/repo/apps/web/node_modules` from the
+     deps stage, which `npm ci` never creates when there's only one npm
+     workspace (everything hoists to the root `node_modules`) — that COPY
+     failed unconditionally. Dropped it.
+   - `package-lock.json` only had the `win32-x64-msvc` native-binary variant
+     for `lightningcss`, `@tailwindcss/oxide`, and `unrs-resolver` (it was
+     last regenerated on this Windows machine, and npm only records an
+     installable entry for the platform that resolved it), so `npm ci`
+     inside the Linux build stage had no `linux-x64-musl` binary and the
+     Tailwind v4 build failed. Fixed by resolving a fresh lockfile inside
+     `node:22-alpine` and splicing in only the missing platform-variant
+     entries (dependency-closure walk, not a wholesale relock — that would
+     have also silently bumped ~50 unrelated transitive packages). Diff is
+     purely additive. Commit `80a3008`.
 
 ---
 
