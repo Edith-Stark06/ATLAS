@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "scikit-learn>=1.5",
     "numpy>=2.0",
+    "pandas>=2.2",
     "joblib>=1.4",
     "shap>=0.46",
     "pyjwt>=2.10",

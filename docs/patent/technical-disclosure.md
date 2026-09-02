@@ -319,6 +319,57 @@ fields. Fields describing the agent's governance state (lifecycle, capability)
 are excluded by construction, so the system cannot suggest that an operator
 alter the state being governed.
 
+### 5.9 Real-Data Risk Model (`app/ml/train_risk_model.py`)
+
+§5.6 disclosed the synthetic dataset the Trust Engine and Simulation Engine
+are trained on, and stated plainly why: no real-world agent decision history
+exists to train on. That remains true of *agent behaviour* specifically.
+Real-world *transaction* data does exist in the open, and where it does, this
+system trains on it instead — narrowing, not removing, the synthetic-data
+disclosure above.
+
+**Dataset.** "Credit Card Fraud Detection" (Worldline / Machine Learning
+Group, Université Libre de Bruxelles): 284,807 real European cardholder
+transactions over two days in September 2013, 492 (0.172%) labelled
+fraudulent. Fetched by `app/ml/fetch_real_data.py`, which validates row
+count, fraud count, and column layout before use and fails closed on a
+mismatch rather than training on a truncated or corrupted download. Not
+committed to the repository (ODbL v1.0 database-rights terms and ~150MB);
+fetched on demand, same operational pattern as the trained model artifacts
+themselves (§8).
+
+**What it can and cannot train.** Of the dataset's 31 columns, only `Amount`
+and `Time` are human-interpretable; the remaining 28 (`V1`..`V28`) are PCA
+components of the original cardholder features, withheld by the publisher
+for privacy. There is no persistent per-cardholder identity across rows —
+every transaction is independent. This is the dataset's real limitation for
+this system, stated precisely rather than glossed: it can train a real *risk
+classifier* (real features, real fraud label), but it cannot train the Trust
+Engine (§5.1), which scores an agent from *its own accumulated decision
+history* — a concept absent from a dataset with no persistent identity at
+all. No public transaction dataset can supply governance-context features
+either (`policy_pass_rate`, `authority_level`, and similar, §5.3) — those
+describe a governing system's state, not a property of the transaction
+itself, and fabricating them to force-fit this dataset onto the existing
+Simulation Engine's feature schema would be exactly the "plausible
+fabrication" this project's design principle (§6, PROJECT_MEMORY.md §6)
+exists to reject. The risk model is therefore a new, separately-scoped
+artifact (`RiskModel`, `app/ml/models.py`) rather than a retrained
+`SimulationModel` — it estimates a real risk signal from real transaction
+features; the governance decision that consumes a risk score alongside
+policy and authority context remains, as it must, a separate concern.
+
+**Training.** `HistGradientBoostingClassifier` (the same estimator family as
+§5.3, for consistency) with `class_weight="balanced"` over `log(1+Amount)`,
+hour-of-day derived from `Time`, and the 28 PCA components — 30 features in
+total. `class_weight="balanced"` reweights the loss rather than resampling:
+resampling would synthesize or discard real transactions, which would
+quietly reintroduce non-real data into a model whose evidentiary value rests
+on training on real data only. Stratified by class rather than grouped
+(`real_data.build_risk_training_split`) — there is no identity to group on,
+and stratification is necessary at this class ratio to guarantee the held-out
+set contains a meaningful number of fraud examples at all.
+
 ## 6. Technical Effect — Evaluation Results
 
 Produced by `python -m app.ml.train`, written verbatim to
@@ -363,6 +414,50 @@ Log-loss is the primary claim here, not accuracy: the system exposes
 *probabilities* to the operator ("64% recommend human review"), so
 calibration quality is what matters, and log-loss is the metric that
 measures it directly.
+
+### 6.4 Real-Data Risk Model
+
+Produced by `python -m app.ml.train_risk_model` against the real dataset
+disclosed in §5.9 — 284,807 real transactions, 492 (0.172%) labelled
+fraudulent, 213,605 train / 71,202 test (stratified; 123 fraud cases in the
+held-out set). Baseline is the training set's fraud rate predicted for every
+transaction, matching the "fixed value regardless of input" standard used
+in §6.1–6.3, here applied to a real rather than synthetic dataset.
+
+| Metric | Class-frequency (baseline) | Trained classifier (learned) | Change |
+|---|---|---|---|
+| ROC-AUC | 0.500 | 0.967 | **+93%** |
+| Average precision (PR-AUC) | 0.002 | 0.777 | **+45,700%** |
+| Precision at threshold 0.5 | undefined¹ | 0.528 | — |
+| Recall at threshold 0.5 | undefined¹ | 0.829 | — |
+| Log-loss (lower is better) | 0.013 | 0.022 | **+68% (worse)** |
+
+¹ The baseline never predicts positive (it outputs the constant fraud rate
+as a probability, not a class), so precision and recall are undefined for
+it, not zero — reported as such rather than substituted with a number that
+would misstate what "baseline" means here.
+
+Average precision, not ROC-AUC, is the metric to read first: at a 0.172%
+positive rate, ROC-AUC's own baseline is close to 1.0 by construction long
+before a model does anything useful (a model that flags a random 1% of
+transactions already scores well on ROC-AUC), while average precision
+directly measures what matters operationally — of the transactions the
+model flags, how many are actually fraud, across every possible operating
+point. The baseline's 0.002 is the dataset's true prevalence; the learned
+model's 0.777 is not.
+
+The log-loss result is reported despite being *unfavourable*, for the same
+reason §6.2 reports both a precision gain and a recall loss: this is the one
+metric in this report where the trained model loses to its baseline, and
+omitting it would misrepresent the evaluation as uniformly favourable when
+it is not. The reason is a known property of this metric at this class
+ratio, not a modelling defect: a constant prediction near the true 0.17%
+prevalence is, by definition, rarely far wrong in log-loss terms, while a
+model confident enough to be operationally useful (recall 0.829 — it catches
+the large majority of real fraud) necessarily makes a small number of
+confident, costly misses. Average precision and ROC-AUC are the metrics
+that reward discrimination at this class ratio; log-loss does not, and is
+included here specifically so that fact is not concealed.
 
 ## 7. Candidate Claim Elements (for patent agent review — not final claims)
 
@@ -442,6 +537,17 @@ retrofitted documentation):
   *worsen* log-loss relative to the naive baseline — caught by
   `tests/test_ml_train.py`, not by inspection. Forcing `early_stopping=True`
   unconditionally fixed it at both scales.
+- **Silent label corruption in the real dataset** (§5.9): OpenML's CSV
+  export of the fraud dataset wraps the nominal `Class` column's values in
+  literal single quotes (`'0'`/`'1'`), an artifact of converting from
+  OpenML's native ARFF format. Read naively, this produces a string-typed
+  label column that scikit-learn accepts without error — `fit()` does not
+  reject it — but that silently breaks every downstream computation assuming
+  numeric 0/1 (`y.mean()` for the fraud rate, `average="binary"` in
+  precision/recall, `pos_label` defaults). Caught by validating row and
+  fraud counts against the dataset's published statistics
+  (`fetch_real_data.py`) before training rather than after; the fix strips
+  the quote and casts explicitly (`real_data.py::load_real_transactions`).
 
 ## 9. Prior Art Differentiation (for the patent agent's search)
 

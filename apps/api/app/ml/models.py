@@ -107,6 +107,27 @@ class SimulationModel:
         ]
 
 
+class RiskModel:
+    """Trained on real transaction data (app.ml.train_risk_model), not the
+    synthetic generator the other two models use — see
+    docs/patent/technical-disclosure.md §5.9. Predicts a real fraud
+    probability from real transaction features (amount, hour, and the
+    dataset's 28 anonymized behavioural components); has no notion of
+    governance context, unlike SimulationModel."""
+
+    def __init__(self, model):
+        self._model = model
+
+    def predict_risk_score(self, features: dict[str, float]) -> float:
+        """0-100, higher is riskier — 100 * P(fraud), same scale and
+        direction as every other risk_score in this codebase."""
+        from app.ml.real_data import RISK_MODEL_FEATURES
+
+        x = np.array([[features[k] for k in RISK_MODEL_FEATURES]])
+        p_fraud = float(self._model.predict_proba(x)[0, 1])
+        return round(100.0 * p_fraud, 2)
+
+
 @lru_cache(maxsize=1)
 def load_trust_model() -> TrustModel | None:
     model_path = ARTIFACTS_DIR / "trust_model.joblib"
@@ -130,6 +151,14 @@ def load_simulation_model() -> SimulationModel | None:
     if not model_path.exists():
         return None
     return SimulationModel(joblib.load(model_path))
+
+
+@lru_cache(maxsize=1)
+def load_risk_model() -> RiskModel | None:
+    model_path = ARTIFACTS_DIR / "risk_model.joblib"
+    if not model_path.exists():
+        return None
+    return RiskModel(joblib.load(model_path))
 
 
 def load_metrics() -> dict | None:

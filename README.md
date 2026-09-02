@@ -267,6 +267,32 @@ Artifacts are gitignored (`apps/api/app/ml/artifacts/`) — regenerate them
 locally rather than committing binaries; `metrics.json` there is the
 canonical source for the numbers in the table above.
 
+### Real-Data Risk Model
+
+A fourth model, trained on **real** financial transaction data rather than
+the synthetic generator above — 284,807 real European cardholder
+transactions (Worldline / ULB Machine Learning Group, 492 labelled fraud),
+not a simulation:
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m app.ml.fetch_real_data   # one-time, ~150MB
+.venv/Scripts/python.exe -m app.ml.train_risk_model
+```
+
+| Metric | Class-frequency baseline | Trained classifier | Change |
+| --- | --- | --- | --- |
+| Average precision | 0.002 | 0.777 | **+45,700%** |
+| ROC-AUC | 0.500 | 0.967 | **+93%** |
+
+It trains a real fraud/risk classifier from real transaction features
+(amount, time, and 28 anonymized behavioural components) — it does **not**
+replace the synthetic-trained Simulation Engine above, which reasons over
+governance context (policy pass rate, authority level) that no public
+transaction dataset can supply. See `docs/patent/technical-disclosure.md`
+§5.9/§6.4 for the full methodology, scope, and why that limitation is real
+rather than a workaround. Raw data is gitignored — fetched on demand under
+its own license (ODbL v1.0), never committed.
+
 ### Data model notes
 
 - **Money is `Numeric(16,2)`**, never float, so amounts round-trip exactly. It is

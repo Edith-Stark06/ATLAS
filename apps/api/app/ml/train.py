@@ -273,7 +273,15 @@ def main() -> None:
         "anomaly_detection": anomaly_metrics,
         "simulation_model": sim_metrics,
     }
-    (ARTIFACTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    # Merged rather than overwritten: train_risk_model.py (real-data risk
+    # model, see docs/patent/technical-disclosure.md §5.9) writes its own
+    # top-level key to this same file and is independently re-runnable in
+    # either order — a plain overwrite here would silently erase it if this
+    # script runs second.
+    metrics_path = ARTIFACTS_DIR / "metrics.json"
+    existing = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
+    existing.update(metrics)
+    metrics_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
     print(f"\nArtifacts written to {ARTIFACTS_DIR}")
     print(f"Done in {metrics['duration_seconds']}s")

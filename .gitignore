@@ -55,3 +55,9 @@ Thumbs.db
 # also gitignored here since it's regenerated alongside the models it scores.
 apps/api/app/ml/artifacts/*.joblib
 apps/api/app/ml/artifacts/metrics.json
+
+# Real-data training set for the risk model — fetched with
+# `python -m app.ml.fetch_real_data`, not committed. It's a third party's
+# published research dataset (ODbL/DbCL v1.0, ULB Machine Learning Group);
+# redistributing it isn't ours to do, and it's ~150MB besides.
+apps/api/app/ml/data/

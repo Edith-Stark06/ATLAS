@@ -1,7 +1,7 @@
 # ATLAS — Project Memory
 
 Complete context handoff. Written 2026-08-24, updated through Phase 15
-(2026-09-01).
+(2026-09-01) plus the real-data risk model added 2026-09-02.
 
 Repo: https://github.com/Edith-Stark06/ATLAS · branch `main` · local path
 `D:\Documents\Projects\ATLAS`
@@ -156,6 +156,46 @@ Trained metrics (`app/ml/artifacts/metrics.json`, 320 agents × 60 steps):
 | Drift (F1) | 0.263 | **0.335** |
 | Simulation (accuracy) | 0.531 | **0.568** |
 | Simulation (log loss) | 1.005 | **0.946** |
+
+#### Real-Data Risk Model (`app/ml/train_risk_model.py`) — added 2026-09-02
+
+A **fourth model**, trained on real data instead of `dataset.py`'s
+synthetic generator — for the patent disclosure's technical-effect
+evidence, not something the live decision pipeline currently calls.
+`docs/patent/technical-disclosure.md` §5.9/§6.4 has the full writeup;
+summary:
+
+- **Dataset**: "Credit Card Fraud Detection" (Worldline / ULB Machine
+  Learning Group) — 284,807 real European cardholder transactions,
+  September 2013, 492 (0.172%) labelled fraud. Fetched from OpenML
+  (`python -m app.ml.fetch_real_data`, no account needed), gitignored
+  (~150MB, ODbL v1.0 — not ours to redistribute), validated (row count,
+  fraud count, column layout) before every use.
+- **Why a fourth model rather than retraining `SimulationModel`**: of the
+  31 columns, only `Amount`/`Time` are interpretable — the other 28
+  (`V1`..`V28`) are PCA components, and there's no persistent per-cardholder
+  identity across rows. That's enough to train a real fraud/risk classifier,
+  but *not* enough to supply `SimulationModel`'s governance-context features
+  (`policy_pass_rate`, `authority_level`, ...) — no public transaction
+  dataset could, without fabricating them. `RiskModel` (`app/ml/models.py`)
+  is therefore new and separately scoped, not a drop-in replacement.
+- **Results** (213,605 train / 71,202 test, stratified): ROC-AUC 0.500 →
+  0.967, average precision 0.002 → 0.777, precision/recall at threshold 0.5
+  = 0.528/0.829. Log-loss is reported too despite being *worse* for the
+  learned model (0.013 → 0.022) — a known property of log-loss at this
+  class ratio, not a modelling defect, and stated plainly rather than
+  omitted (see §6.4 for why).
+- **Real bug found**: OpenML's CSV export wraps the `Class` label in literal
+  single quotes (`'0'`/`'1'`), an ARFF-conversion artifact. Read naively
+  this produces string labels scikit-learn accepts without error but that
+  silently break every downstream numeric computation. Caught by validating
+  against the dataset's published row/fraud counts before training, not by
+  inspection — `fetch_real_data.py`'s whole reason for existing rather than
+  a bare `pd.read_csv` in the training script.
+- Tests (`tests/test_ml_train_risk_model.py`) skip when the dataset hasn't
+  been fetched, same pattern as an unreachable Postgres elsewhere in this
+  suite — not part of CI (no fetch step added there; 150MB on every run
+  isn't worth it for something CI doesn't otherwise exercise).
 
 ### Policy Brain (`policy_engine.py`, `policy_service.py`)
 
@@ -330,8 +370,9 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **479 tests pass on a fresh seed, and the suite is now repeatable without
-  one** — see resolved issues below.
+- **486 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below (3 of the 486 are the real-data risk
+  model's, and skip when that dataset hasn't been fetched locally).
 - Lint clean (ruff + eslint), typecheck clean, production build clean.
 - Both Docker images built and verified end-to-end: API (runs non-root,
   connects to Postgres, serves login, config guardrail fires inside the
