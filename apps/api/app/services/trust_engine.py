@@ -45,6 +45,22 @@ MIN_FORECAST_SAMPLES = 3
 #: Baseline excludes the most recent snapshots so drift compares "now" to "before".
 BASELINE_EXCLUDE_RECENT = 1
 
+#: The five factors compute_base_score weighs, and their canonical labels
+#: and weights — every agent, seeded or newly registered, is scored on the
+#: same five signals so a composite trust score means the same thing across
+#: the whole estate. Weights need not sum to 1 (compute_base_score
+#: normalises), but keep them here in one place regardless: two agents
+#: scored on different implied weightings would not be comparable, which
+#: defeats the purpose of a shared trust score at all.
+FACTOR_LABELS = {
+    "behavior": "Behavior Consistency",
+    "policy": "Policy Compliance",
+    "risk": "Risk Exposure",
+    "context": "Context Awareness",
+    "history": "Historical Reliability",
+}
+FACTOR_WEIGHTS = {"behavior": 0.22, "policy": 0.24, "risk": 0.20, "context": 0.14, "history": 0.20}
+
 
 @dataclass(frozen=True)
 class DriftAssessment:

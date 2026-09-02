@@ -6,6 +6,35 @@ module skips rather than failing, so `pytest` stays meaningful on a machine
 with no Docker running.
 """
 
+import pytest
+
+
+@pytest.fixture
+async def cleanup_test_agents():
+    """Registering an agent (POST /agents) is the one governance write in
+    this suite that's safely reversible — no decisions or ledger entries
+    exist for it yet, so deleting the row afterward leaves no trace, unlike
+    a committed decision (its ledger entry is permanent by design — see
+    `test_decision_pipeline.py`). Cascades to the agent's TrustFactor rows
+    (ondelete="CASCADE", app/models/agent.py).
+
+    Tests append the id(s) they create; teardown deletes exactly those.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models import Agent
+
+    created: list[str] = []
+    yield created
+
+    if not created:
+        return
+    async with AsyncSessionLocal() as session:
+        for agent_id in created:
+            agent = await session.get(Agent, agent_id)
+            if agent is not None:
+                await session.delete(agent)
+        await session.commit()
+
 
 def test_agents_are_listed_by_descending_trust(client):
     agents = client.get("/api/v1/agents").json()
@@ -115,3 +144,94 @@ def test_policies_list_enabled_first(client):
     assert policies
     enabled_flags = [p["enabled"] for p in policies]
     assert enabled_flags == sorted(enabled_flags, reverse=True)
+
+
+# --- agent registration -------------------------------------------------------
+
+
+def test_registering_an_agent_starts_it_in_onboarding_with_no_history(client, cleanup_test_agents):
+    response = client.post(
+        "/api/v1/agents",
+        json={
+            "id": "agt-test-registration-01",
+            "name": "Test Registration Agent",
+            "capability": "Test Capability",
+            "owner": "test-suite",
+            "model": "test-model-v1",
+        },
+    )
+    cleanup_test_agents.append("agt-test-registration-01")
+
+    assert response.status_code == 201, response.text
+    agent = response.json()
+    assert agent["lifecycle"] == "onboarding"
+    assert agent["decisionsToday"] == 0
+    assert agent["lastDecision"] == ""
+    # No factors supplied — every one of the five defaults to a neutral 50,
+    # so the derived base score is exactly 50 regardless of the weights.
+    assert {f["key"]: f["score"] for f in agent["factors"]} == {
+        "behavior": 50,
+        "policy": 50,
+        "risk": 50,
+        "context": 50,
+        "history": 50,
+    }
+    assert agent["trustScore"] == 50
+
+    fetched = client.get("/api/v1/agents/agt-test-registration-01").json()
+    assert fetched["id"] == agent["id"]
+
+
+def test_registering_an_agent_computes_trust_score_from_supplied_factors(
+    client, cleanup_test_agents
+):
+    """trust_score must be derived, never asserted — same rule every other
+    trust score in this system follows (trust_engine.compute_base_score)."""
+    response = client.post(
+        "/api/v1/agents",
+        json={
+            "id": "agt-test-registration-02",
+            "name": "Test Registration Agent 2",
+            "capability": "Test Capability",
+            "owner": "test-suite",
+            "model": "test-model-v1",
+            "factors": {"behavior": 90, "policy": 90, "risk": 90, "context": 90, "history": 90},
+        },
+    )
+    cleanup_test_agents.append("agt-test-registration-02")
+
+    assert response.status_code == 201, response.text
+    assert response.json()["trustScore"] == 90
+
+
+def test_registering_an_agent_with_a_duplicate_id_is_rejected(client, cleanup_test_agents):
+    payload = {
+        "id": "agt-test-registration-03",
+        "name": "Test Registration Agent 3",
+        "capability": "Test Capability",
+        "owner": "test-suite",
+        "model": "test-model-v1",
+    }
+    first = client.post("/api/v1/agents", json=payload)
+    cleanup_test_agents.append("agt-test-registration-03")
+    assert first.status_code == 201
+
+    second = client.post("/api/v1/agents", json=payload)
+    assert second.status_code == 409
+
+
+def test_registering_an_agent_rejects_an_unknown_factor(client):
+    response = client.post(
+        "/api/v1/agents",
+        json={
+            "id": "agt-test-registration-04",
+            "name": "Test Registration Agent 4",
+            "capability": "Test Capability",
+            "owner": "test-suite",
+            "model": "test-model-v1",
+            "factors": {"loyalty": 80},
+        },
+    )
+    # 422 from pydantic validation — the row is never created, so no cleanup
+    # is needed here.
+    assert response.status_code == 422

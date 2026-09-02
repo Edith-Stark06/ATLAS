@@ -302,6 +302,24 @@ def test_an_operator_cannot_manage_credentials(client: TestClient, api: TestClie
     )
 
 
+def test_an_operator_cannot_register_an_agent(client: TestClient, api: TestClient):
+    """Registering an agent changes what the estate governs — same admin-only
+    bar as creating a user, not something an operator credential can do."""
+    token = mint_key(client, role="operator")
+    response = api.post(
+        "/api/v1/agents",
+        json={
+            "id": "agt-test-operator-should-not-create-this",
+            "name": "Should Not Exist",
+            "capability": "Test Capability",
+            "owner": "test-suite",
+            "model": "test-model-v1",
+        },
+        headers=as_key(api, token),
+    )
+    assert response.status_code == 403
+
+
 # --- agent-bound keys --------------------------------------------------------
 
 

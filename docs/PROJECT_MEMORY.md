@@ -197,6 +197,40 @@ summary:
   suite — not part of CI (no fetch step added there; 150MB on every run
   isn't worth it for something CI doesn't otherwise exercise).
 
+#### Agent Registration (`POST /agents`) — added 2026-09-02
+
+Closed a real gap found while discussing "real" agents: there was no way to
+register one through the API at all — every agent in the system existed
+only because `app/seed.py`/`seed_cohort.py`/`seed_domains.py` inserted its
+row directly. `POST /agents` (`governance.py`, `RequireAdmin`) is the
+missing piece: takes `id`/`name`/`capability`/`owner`/`model`/
+`authority_level` and optional starting factor scores (0-100, any factor
+left unset defaults to a neutral 50 — a new agent has no track record, so
+nothing is asserted that hasn't been earned). `trust_score` is **derived**
+via `trust_engine.compute_base_score`, never accepted from the caller —
+the same "computed, never stored as given" rule every other trust score in
+this system follows. Starts in `lifecycle=onboarding` with zero decisions.
+
+Pulled `FACTOR_LABELS`/`FACTOR_WEIGHTS` into `trust_engine.py` as the
+canonical source (used by the new endpoint) rather than adding a fourth
+copy — `seed.py`, `seed_cohort.py`, and `seed_domains.py` each already
+duplicate these constants locally; left untouched as pre-existing, working
+code outside this change's scope, but worth fixing centrally if anyone
+touches factor weights again.
+
+Tests (`test_governance.py`) use a `cleanup_test_agents` fixture that
+deletes exactly the agent rows a test creates — safe and complete here
+specifically because a freshly-registered agent has no decisions or ledger
+entries yet. That would **not** be true of a demo agent that goes on to
+*commit* real decisions: each one writes a permanent, hash-chained ledger
+entry that cannot be deleted afterward without breaking the chain for
+everything decided after it — deliberately, that's the tamper-evidence
+mechanism (§5 above) working as designed. A one-off live demo (register →
+mint a key → commit ~30 real decisions → check `/trust/agents/{id}` and
+`/benchmark/cohorts/{capability}`) is therefore run manually, not added to
+the automated suite, and its agent stays in the seeded estate afterward
+rather than being cleaned up.
+
 ### Policy Brain (`policy_engine.py`, `policy_service.py`)
 
 Rules are **immutable versioned records**. Fields: `trust_score`,
@@ -370,8 +404,8 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **486 tests pass on a fresh seed, and the suite is now repeatable without
-  one** — see resolved issues below (3 of the 486 are the real-data risk
+- **491 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below (3 of the 491 are the real-data risk
   model's, and skip when that dataset hasn't been fetched locally).
 - Lint clean (ruff + eslint), typecheck clean, production build clean.
 - Both Docker images built and verified end-to-end: API (runs non-root,

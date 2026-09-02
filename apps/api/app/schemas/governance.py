@@ -1,8 +1,11 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
+from pydantic import Field, field_validator
+
 from app.models.enums import ActivityTone, DecisionOutcome, LifecycleState, Severity
 from app.schemas.base import ApiModel
+from app.services.trust_engine import FACTOR_WEIGHTS
 
 
 class TrustFactorRead(ApiModel):
@@ -27,6 +30,43 @@ class AgentRead(ApiModel):
     last_audit_at: date
     last_decision: str
     factors: list[TrustFactorRead] = []
+
+
+class CreateAgentRequest(ApiModel):
+    #: External identifier — assigned by the registering system, not
+    #: generated here, matching every seeded agent's "agt-*" convention.
+    #: Primary key, so it must be unique; a collision is a 409.
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=200)
+    #: Groups this agent into a benchmark cohort — ranking only ever compares
+    #: agents sharing this exact string (benchmark_engine.rank_cohort).
+    capability: str = Field(min_length=1, max_length=120)
+    owner: str = Field(min_length=1, max_length=120)
+    #: Free-text description of what the agent runs on (e.g. a model name or
+    #: version) — descriptive only, not evaluated by any governance rule.
+    model: str = Field(min_length=1, max_length=80)
+    authority_level: int = Field(default=1, ge=1, le=4)
+    #: Starting factor scores, 0-100. A newly registered agent has no track
+    #: record yet, so any factor left unset defaults to a neutral 50 —
+    #: ATLAS does not assert trust it hasn't observed. Keys must be a subset
+    #: of the five canonical factors (trust_engine.FACTOR_WEIGHTS); an
+    #: unknown key is rejected rather than silently ignored.
+    factors: dict[str, int] | None = None
+
+    @field_validator("factors")
+    @classmethod
+    def _validate_factors(cls, value: dict[str, int] | None) -> dict[str, int] | None:
+        if value is None:
+            return value
+        unknown = set(value) - set(FACTOR_WEIGHTS)
+        if unknown:
+            raise ValueError(
+                f"unknown factor(s): {sorted(unknown)} — expected one of {sorted(FACTOR_WEIGHTS)}"
+            )
+        out_of_range = {k: v for k, v in value.items() if not (0 <= v <= 100)}
+        if out_of_range:
+            raise ValueError(f"factor scores must be 0-100: {out_of_range}")
+        return value
 
 
 class PolicyCheckRead(ApiModel):

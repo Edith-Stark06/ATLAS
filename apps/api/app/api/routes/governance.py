@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import RequireAdmin
 from app.api.pagination import set_total_count
 from app.core.database import get_db
 from app.models import (
@@ -10,14 +13,18 @@ from app.models import (
     Decision,
     Policy,
     SimulationRun,
+    TrustFactor,
 )
+from app.models.enums import LifecycleState
 from app.schemas.governance import (
     ActivityItemRead,
     AgentRead,
+    CreateAgentRequest,
     DecisionRead,
     PolicyRead,
     SimulationRunRead,
 )
+from app.services.trust_engine import FACTOR_LABELS, FACTOR_WEIGHTS, compute_base_score
 
 router = APIRouter()
 
@@ -53,6 +60,62 @@ async def get_agent(agent_id: str, db: AsyncSession = Depends(get_db)) -> Agent:
     agent = await db.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+    return agent
+
+
+@router.post(
+    "/agents",
+    response_model=AgentRead,
+    status_code=201,
+    tags=["agents"],
+    # Registering a new agent changes what the estate governs — same bar as
+    # creating a user (auth.py::create_user), not something a viewer/operator
+    # or an agent's own credential should be able to do to itself or others.
+    dependencies=[RequireAdmin],
+)
+async def create_agent(request: CreateAgentRequest, db: AsyncSession = Depends(get_db)) -> Agent:
+    """Register a new agent, starting in `onboarding` with no decision
+    history — everything from here on (trust score, lifecycle, benchmark
+    rank) is earned from what it actually does, not asserted at creation.
+    """
+    existing = await db.get(Agent, request.id)
+    if existing is not None:
+        raise HTTPException(status_code=409, detail=f"Agent '{request.id}' already exists")
+
+    supplied = request.factors or {}
+    factors = [
+        TrustFactor(
+            key=key,
+            label=FACTOR_LABELS[key],
+            score=supplied.get(key, 50),
+            weight=FACTOR_WEIGHTS[key],
+        )
+        for key in FACTOR_WEIGHTS
+    ]
+
+    now = datetime.now(UTC)
+    agent = Agent(
+        id=request.id,
+        name=request.name,
+        capability=request.capability,
+        owner=request.owner,
+        lifecycle=LifecycleState.ONBOARDING,
+        # Computed from the starting factors, never asserted — same rule
+        # every other trust score in this system follows
+        # (trust_service.evaluate_agent; PROJECT_MEMORY.md §5).
+        trust_score=round(compute_base_score(factors)),
+        trust_delta=0.0,
+        decisions_today=0,
+        last_active_at=now,
+        model=request.model,
+        authority_level=request.authority_level,
+        last_audit_at=now.date(),
+        last_decision="",
+        factors=factors,
+    )
+    db.add(agent)
+    await db.commit()
+    await db.refresh(agent, attribute_names=["factors"])
     return agent
 
 
