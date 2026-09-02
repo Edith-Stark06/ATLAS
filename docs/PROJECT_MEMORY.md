@@ -386,6 +386,64 @@ Domain-specific rule vocabulary without forking the engine.
 - Packs: investments, travel, booking. Seeded with one agent each, carrying
   the domain attributes their rules read.
 
+### Real-Time Activity Feed (`app/services/activity_stream.py`) — added 2026-09-02
+
+The console's "Live" badge and "Streaming from ATLAS API" footer predate
+this — cosmetic labels on a server-rendered, request/response-only page.
+`ActivityItem` ("An entry in the live governance activity feed") also
+predates this, but nothing ever wrote to it at runtime; every row that
+ever existed came from `app/seed.py`'s demo data. Both gaps close together:
+
+- `decision_service.execute` now writes a real `ActivityItem` in the same
+  transaction as the decision (approved→success, escalated→warning,
+  blocked→danger), then — only *after* `db.commit()` succeeds — publishes
+  it to a Redis Pub/Sub channel (`atlas:activity`). Never announces an
+  event for data that didn't actually persist. Fails open on a Redis error,
+  same rule as the rate limiter: a live-feed hiccup must not turn a
+  successfully committed decision into a failed request.
+- `GET /activity/stream` (SSE, `RequireViewer`) subscribes and forwards.
+- **SSE, not WebSockets** — decided from Next.js 16.3.1's actual docs, not
+  assumed: Route Handlers document SSE as supported (`ReadableStream`
+  response); WebSockets are explicitly unsupported through that same
+  convention. The need is one-directional anyway.
+- **Redis Pub/Sub, not an in-process bus** — multiple API replicas are
+  already anticipated elsewhere (`rate_limiter.py`'s docstring,
+  `docker-compose.prod.yml`'s migrate-service comment about replica races);
+  an in-process bus would miss events committed on a different replica
+  than the one a browser's stream is attached to.
+- **A dedicated Next.js proxy route** (`api/atlas/stream/route.ts`), not a
+  branch in the existing generic one — that one fully buffers both
+  directions (`await request.text()` / `await upstream.text()`) and would
+  hang forever on a connection that's designed to never end. The dedicated
+  route pipes `upstream.body` straight through instead. Auth is solved the
+  same way every other browser→API call already is: a browser-native
+  `EventSource` cannot set an `Authorization` header, so it doesn't try to
+  — it hits this same-origin route, the browser sends the session cookie
+  automatically, and the route attaches the real credential server-side.
+- **First client component with an ongoing subscription** in this app
+  (`components/live/live-activity-feed.tsx`) — every one of the 17 console
+  pages before this was a Server Component rendering one fetched payload
+  once, and the other 7 client components are forms or pure UI-state
+  widgets with no data lifecycle of their own.
+- **Real bug found in testing, not the implementation**: `redis-py`'s
+  `get_message()` checks the socket exactly once per call — it does not
+  loop internally past the pending subscribe-confirmation message to keep
+  waiting for a *real* message within one timeout window (confirmed
+  against its source). A test asserting on a single bare call failed
+  reliably; the production generator was never affected, since its
+  `while True` loop already retries on the next iteration regardless.
+- **Verified against the real running server, not just the test suite**:
+  `TestClient.stream()` hung indefinitely reading this endpoint in this
+  environment — Starlette's `BaseHTTPMiddleware` (which both
+  `RequestContextMiddleware` and `RateLimitMiddleware` are) is known to
+  have real complications with long-lived streaming responses, so this was
+  checked against the actual risk, not dismissed as a test-harness quirk:
+  `python -m app` + `curl -N`, with a decision committed on a second
+  connection mid-stream, delivered the live event correctly with the
+  exact expected payload. The pytest suite tests the generator function
+  directly instead (fast, reliable, exercises the real logic) rather than
+  fighting `TestClient`'s streaming behavior on this specific stack.
+
 ---
 
 ## 6. Recurring design principle
@@ -404,8 +462,8 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **491 tests pass on a fresh seed, and the suite is now repeatable without
-  one** — see resolved issues below (3 of the 491 are the real-data risk
+- **494 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below (3 of the 494 are the real-data risk
   model's, and skip when that dataset hasn't been fetched locally).
 - Lint clean (ruff + eslint), typecheck clean, production build clean.
 - Both Docker images built and verified end-to-end: API (runs non-root,

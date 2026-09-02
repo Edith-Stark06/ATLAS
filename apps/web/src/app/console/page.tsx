@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { LiveActivityFeed } from "@/components/live/live-activity-feed";
 import { ApiError } from "@/components/ui/api-error";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,8 +21,7 @@ import { StatCard, type StatTone } from "@/components/ui/stat-card";
 import { StatusPip } from "@/components/ui/status-pip";
 import { TrustGauge } from "@/components/ui/trust-gauge";
 import { fetchDashboard, tryFetch } from "@/lib/api";
-import type { ActivityItem } from "@/lib/types";
-import { cn, formatTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +32,6 @@ const METRIC_ICONS: Record<string, LucideIcon> = {
   policy: Scale,
   brain: Brain,
   gavel: Gavel,
-};
-
-const ACTIVITY_TONE: Record<ActivityItem["tone"], string> = {
-  info: "bg-secondary",
-  success: "bg-tertiary-green",
-  warning: "bg-brand-amber",
-  danger: "bg-error",
 };
 
 const TRUST_INPUTS = [
@@ -200,27 +193,7 @@ export default async function ControlCenterPage() {
                 </span>
               }
             />
-            <ul className="custom-scrollbar flex-1 divide-y divide-white/5 overflow-y-auto">
-              {activity.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex gap-3 px-6 py-3.5 transition-colors hover:bg-white/[0.02]"
-                >
-                  <span
-                    className={cn(
-                      "mt-1.5 h-8 w-0.5 shrink-0 rounded",
-                      ACTIVITY_TONE[item.tone],
-                    )}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-body-sm text-on-surface">{item.message}</p>
-                    <p className="mt-1 font-mono text-status-label text-outline">
-                      {formatTime(item.at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <LiveActivityFeed initialActivity={activity} />
             <footer className="flex items-center gap-2 border-t border-white/5 px-6 py-3">
               <span className="font-mono text-label-mono-xs uppercase tracking-wider text-outline">
                 Streaming from ATLAS API
