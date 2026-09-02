@@ -174,6 +174,83 @@ DOMAIN_AGENTS: list[tuple[str, str, str, str, int, list[dict]]] = [
             ),
         ],
     ),
+    (
+        "agt-itops-scale-01",
+        "Capacity Scaling Agent",
+        "Capacity Scaling",
+        "Platform Engineering",
+        85,
+        [
+            # Routine, in-window, low-volume — clean.
+            dict(
+                action="Add two read replicas to reporting database",
+                outcome=DecisionOutcome.APPROVED,
+                amount=None,
+                attributes={
+                    "capacity_change_pct": 25.0,
+                    "current_utilization_pct": 55.0,
+                    "affected_transaction_volume": 45_000,
+                    "maintenance_window": "yes",
+                },
+            ),
+            # Mid-day capacity cut outside the change window — blocked by itops-01
+            # (and also matches itops-02's volume threshold; block wins either way).
+            dict(
+                action="Scale down card-authorisation cluster",
+                outcome=DecisionOutcome.BLOCKED,
+                amount=None,
+                attributes={
+                    "capacity_change_pct": -15.0,
+                    "current_utilization_pct": 40.0,
+                    "affected_transaction_volume": 850_000,
+                    "maintenance_window": "no",
+                },
+            ),
+            # Large scale-up of a high-volume system, inside the window —
+            # still reviewed by itops-02 regardless of direction.
+            dict(
+                action="Scale up card-authorisation cluster",
+                outcome=DecisionOutcome.ESCALATED,
+                amount=None,
+                attributes={
+                    "capacity_change_pct": 60.0,
+                    "current_utilization_pct": 88.0,
+                    "affected_transaction_volume": 1_200_000,
+                    "maintenance_window": "yes",
+                },
+            ),
+        ],
+    ),
+    (
+        "agt-itops-diag-01",
+        "System Diagnostics Agent",
+        "System Diagnostics",
+        "Site Reliability Engineering",
+        80,
+        [
+            # Single-record lookup for a support ticket — clean.
+            dict(
+                action="Look up customer's recent transaction for support ticket",
+                outcome=DecisionOutcome.APPROVED,
+                amount=None,
+                attributes={"data_sensitivity": "confidential", "query_scope": "single-record"},
+            ),
+            # Bulk export of regulated data — blocked by itops-03.
+            dict(
+                action="Export full transaction history for fraud investigation",
+                outcome=DecisionOutcome.BLOCKED,
+                amount=None,
+                attributes={"data_sensitivity": "regulated", "query_scope": "bulk-export"},
+            ),
+            # Aggregate query over internal-only data — clean.
+            dict(
+                action="Aggregate query: daily failed-login counts by region",
+                outcome=DecisionOutcome.APPROVED,
+                amount=None,
+                attributes={"data_sensitivity": "internal", "query_scope": "aggregate"},
+            ),
+        ],
+    ),
 ]
 
 

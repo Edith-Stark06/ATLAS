@@ -24,11 +24,12 @@ Two properties carry the weight here:
 from app.domains.base import DomainPack
 from app.domains.booking import BOOKING
 from app.domains.investments import INVESTMENTS
+from app.domains.it_ops import IT_OPS
 from app.domains.travel import TRAVEL
 
 #: Registered packs, in a deterministic order so the vocabulary endpoint and
 #: the authoring UI present the same list on every request.
-PACKS: tuple[DomainPack, ...] = (INVESTMENTS, TRAVEL, BOOKING)
+PACKS: tuple[DomainPack, ...] = (INVESTMENTS, TRAVEL, BOOKING, IT_OPS)
 
 
 def all_packs() -> tuple[DomainPack, ...]:
@@ -78,6 +79,7 @@ __all__ = [
     "PACKS",
     "BOOKING",
     "INVESTMENTS",
+    "IT_OPS",
     "TRAVEL",
     "DomainPack",
     "all_packs",

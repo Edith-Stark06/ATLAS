@@ -383,8 +383,29 @@ Domain-specific rule vocabulary without forking the engine.
 - Core wins a name clash; field names asserted unique across packs at import.
 - Shipped rules go through the ordinary parser and versioning. Tests assert
   each references only core or its own domain's fields.
-- Packs: investments, travel, booking. Seeded with one agent each, carrying
-  the domain attributes their rules read.
+- Packs: investments, travel, booking, **it_ops** (added 2026-09-02, closing
+  the last unaddressed mentor-feedback item — system/log analysis and
+  transaction-capacity scaling in banks). Seeded with one agent per
+  capability, carrying the domain attributes their rules read.
+- **Real gap found while adding it_ops, pre-existing for every pack, not
+  specific to this one**: there is no live way to submit domain attributes
+  through the real API. `ExecuteDecisionRequest`
+  (`POST /decisions/execute`) and `SimulateActionRequest`
+  (`POST /simulation/run`) both have no `attributes` field — grepped for
+  it across `app/schemas/ledger.py`, `app/schemas/simulation.py`,
+  `decision_service.py`, `simulation_service.py`: zero hits. A vertical
+  pack's rules are fully real and correctly enforced *if* a decision
+  carries matching attributes, but today the only way a decision ever
+  does is `app/seed_domains.py` writing them directly into the
+  `investigation` JSONB blob — not something any live caller, human or
+  agent, can do yet for any of the four packs. Verified the it_ops rules
+  themselves are correct by evaluating them directly against
+  `policy_engine.evaluate_rule`/`combine` (now `tests/test_domains.py`'s
+  IT-Ops-specific tests), not by trusting a live round trip that doesn't
+  exist. Fixing this — threading `attributes` through the request schemas
+  and into `PolicyContext` construction — is real, separate scope
+  touching every pack at once, not something to slip into one pack's
+  addition; noted here as a known open issue instead.
 
 ### Real-Time Activity Feed (`app/services/activity_stream.py`) — added 2026-09-02
 
@@ -462,8 +483,8 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **494 tests pass on a fresh seed, and the suite is now repeatable without
-  one** — see resolved issues below (3 of the 494 are the real-data risk
+- **498 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below (3 of the 498 are the real-data risk
   model's, and skip when that dataset hasn't been fetched locally).
 - Lint clean (ruff + eslint), typecheck clean, production build clean.
 - Both Docker images built and verified end-to-end: API (runs non-root,
@@ -500,6 +521,15 @@ boundary is never labelled exact.
 5. **No self-serve password-change flow.** Rotating the bootstrap admin
    password today means minting a replacement admin via `POST /auth/users`
    and retiring the original — see `docs/operations/secrets.md`.
+6. **No live way to submit a vertical pack's domain attributes.**
+   `POST /decisions/execute` and `POST /simulation/run` have no
+   `attributes` field on their request schemas — every pack's rules
+   (investments, travel, booking, it_ops) are real and correctly enforced
+   against a decision that carries matching attributes, but the only thing
+   that ever populates them today is `app/seed_domains.py` writing
+   straight into the `investigation` JSONB blob. Found while adding
+   it_ops; pre-existing for every pack, not something new to that one. See
+   §5 Vertical Packs above for the full trace.
 
 ### Resolved (kept for history — both were live for a while, worth knowing why)
 
@@ -597,14 +627,17 @@ Five directions raised, mapped to status:
 | 1 | Rank N agents doing the same job (security/speed/efficiency) | ✅ **Phase 11** |
 | 2 | Mechanism ranking — what changed that moved the score | ✅ **Phase 11** |
 | 3 | Verticals: mutual funds, portfolio mgmt, travel (safety/privacy), booking | ✅ **Phase 13** |
-| 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ❌ whole new action domain |
+| 4 | IT Ops: system analysis, log analysis, app/transaction scaling in banks | ✅ **added 2026-09-02** |
 | 5 | Resource analysis / "how much to grow" — e.g. a bank scaling customer service | ✅ **Phase 12** |
 
-**Only #4 remains** — IT Ops (system analysis, log analysis, application and
-transaction scaling in banks). It is the largest lift: a genuinely new action
-domain rather than an extension of the financial one, and the one that would
-most broaden what ATLAS governs. The vertical-pack mechanism from Phase 13 is
-the natural way in.
+**All five addressed.** #4 (IT Ops) turned out not to need a special
+mechanism despite being flagged as the largest lift — the vertical-pack
+mechanism from Phase 13 was already built generically enough to take a
+non-financial domain (`CORE_FIELDS.amount_usd`'s own docstring already
+said "absent for non-financial actions," before this pack existed to
+prove it). See §5 Vertical Packs for the `it_ops` pack itself and the real
+gap found while adding it (no live way to submit domain attributes through
+the actual API yet, for any of the four packs — Known open issues #6).
 
 ---
 

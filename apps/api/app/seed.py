@@ -1018,11 +1018,17 @@ async def seed(reset: bool = False) -> None:
 
         bootstrap_note = await ensure_bootstrap_admin(session)
 
+    # domain_agents/domain_decisions and the pack-authored policy count were
+    # excluded from this summary before IT Ops was the fourth pack to make
+    # the gap between "printed" and "actually seeded" wide enough to notice
+    # — computed from the real lists/PACKS rather than hardcoded, so a fifth
+    # pack doesn't silently understate this again.
     print(
-        f"Seeded: {6 + len(cohort_agents)} agents "
+        f"Seeded: {6 + len(domain_agents) + len(cohort_agents)} agents "
         f"({len(cohort_agents)} in the '{COHORT_CAPABILITY}' cohort), "
-        "9 policies (with rule versions), "
-        f"{6 + len(cohort_decisions)} decisions, "
+        f"{len(policies) + sum(len(pack.policies) for pack in PACKS)} policies "
+        "(with rule versions), "
+        f"{6 + len(domain_decisions) + len(cohort_decisions)} decisions, "
         "3 simulations, 6 activity items, "
         f"{len(agents) * HISTORY_ROUNDS} trust snapshots"
     )

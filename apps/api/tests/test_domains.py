@@ -219,3 +219,85 @@ def test_an_unknown_field_is_still_refused():
                 "applies_to": [],
             }
         )
+
+
+# --- IT Ops: the shipped rules themselves, not a hand-written analogue -------
+#
+# The tests above already exercise every pack's shipped rules generically
+# (parses, uses real fields, scoped correctly) — these go one step further
+# for the newest pack specifically: does the actual rule from IT_OPS.policies
+# (not a lookalike built for the test, the way concentration_rule() above is)
+# fire on the exact scenario it exists for, and correctly decline otherwise.
+# There is no live HTTP path to exercise this end-to-end — POST
+# /decisions/execute has no attributes field, so a real decision can never
+# actually carry domain values today; this is the level at which the
+# mechanism is genuinely tested, same as every test above it.
+
+
+def _it_ops_rule(policy_id: str):
+    from app.domains.it_ops import IT_OPS
+
+    (rule,) = (r for r in IT_OPS.policies if r.policy_id == policy_id)
+    return parse_rule(rule.rule)
+
+
+def test_capacity_cut_outside_the_window_is_blocked():
+    result = evaluate_rule(
+        _it_ops_rule("itops-01"),
+        context(
+            "Capacity Scaling",
+            maintenance_window="no",
+            capacity_change_pct=-15.0,
+        ),
+    )
+    assert result.matched is True
+    assert result.effect is Effect.BLOCK
+
+
+def test_the_same_size_cut_inside_the_window_is_not_blocked():
+    """The window, not the size of the cut, is what the rule actually reads —
+    confirms the AND-combinator, not just the magnitude threshold alone."""
+    result = evaluate_rule(
+        _it_ops_rule("itops-01"),
+        context(
+            "Capacity Scaling",
+            maintenance_window="yes",
+            capacity_change_pct=-15.0,
+        ),
+    )
+    assert result.matched is False
+
+
+def test_regulated_bulk_export_is_blocked():
+    result = evaluate_rule(
+        _it_ops_rule("itops-03"),
+        context("System Diagnostics", data_sensitivity="regulated", query_scope="bulk-export"),
+    )
+    assert result.matched is True
+    assert result.effect is Effect.BLOCK
+
+
+def test_a_scenario_matching_two_rules_resolves_to_the_more_restrictive():
+    """A capacity cut outside the window on a high-volume system matches
+    both itops-01 (block) and itops-02 (review) — combine() must still
+    settle on block, not whichever rule happened to evaluate first."""
+    from app.services.policy_engine import combine
+
+    ctx = context(
+        "Capacity Scaling",
+        maintenance_window="no",
+        capacity_change_pct=-15.0,
+        affected_transaction_volume=850_000,
+    )
+    evaluations = [
+        (policy_id, policy_id, rule, evaluate_rule(rule, ctx))
+        for policy_id, rule in (
+            ("itops-01", _it_ops_rule("itops-01")),
+            ("itops-02", _it_ops_rule("itops-02")),
+        )
+    ]
+
+    decision = combine(evaluations)
+
+    assert decision.effect is Effect.BLOCK
+    assert {t[0] for t in decision.triggered} == {"itops-01", "itops-02"}
