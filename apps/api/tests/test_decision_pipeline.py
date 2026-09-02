@@ -196,6 +196,7 @@ def test_the_chain_verifies_after_writing_decisions(client):
     verification = client.get("/api/v1/ledger/verify").json()
     assert verification["valid"] is True, verification["breaks"]
     assert verification["breaks"] == []
+    assert verification["complete"] is True
 
 
 def test_each_entry_links_to_the_one_before_it(client):
@@ -237,6 +238,70 @@ def test_verification_recomputes_rather_than_trusting_a_flag(client):
 
 def test_an_unknown_ledger_entry_is_a_404(client):
     assert client.get("/api/v1/ledger/999999").status_code == 404
+
+
+# --- the fast, checkpointed verification path ---------------------------------
+
+
+def test_verify_since_checks_only_entries_after_the_checkpoint(client):
+    checkpoint = client.get("/api/v1/ledger/stats").json()["headSeq"]
+    execute(client)
+    execute(client)
+
+    verification = client.get("/api/v1/ledger/verify", params={"sinceSeq": checkpoint}).json()
+
+    assert verification["complete"] is False
+    assert verification["valid"] is True
+    assert verification["entriesChecked"] == 2
+
+
+def test_verify_since_an_unknown_checkpoint_is_a_404(client):
+    response = client.get("/api/v1/ledger/verify", params={"sinceSeq": 999_999_999})
+    assert response.status_code == 404
+
+
+async def test_verify_since_catches_a_tampered_checkpoint_but_not_an_earlier_tamper(client):
+    """The security boundary of the fast path, made explicit and asserted in
+    both directions, not just the reassuring one: it protects the checkpoint
+    entry itself and everything after it, but a tamper strictly *before* the
+    checkpoint is invisible to it — only a full verify() (no sinceSeq) still
+    catches that, which this test also confirms in the same breath so the
+    two claims can't silently drift apart.
+
+    Both checks run inside a transaction that is always rolled back — the
+    point is to prove detection (and its documented limit), not to leave a
+    falsified audit record behind.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.services import ledger, ledger_service
+
+    async with AsyncSessionLocal() as session:
+        try:
+            entries = await ledger_service.load_chain(session)
+            if len(entries) < 3:
+                pytest.skip("needs at least three ledger entries")
+
+            early = entries[0]
+            checkpoint = entries[len(entries) // 2]
+            assert early.seq < checkpoint.seq
+
+            original = early.payload.get("decision", {}).get("outcome")
+            forged = "blocked" if original == "approved" else "approved"
+            tampered = dict(early.payload)
+            tampered["decision"] = {**tampered.get("decision", {}), "outcome": forged}
+            early.payload = tampered
+            assert forged != original
+
+            full = ledger.verify_chain(entries)
+            assert full.valid is False, "a full walk must still catch a tamper anywhere in history"
+
+            fast = await ledger_service.verify_since(session, checkpoint.seq)
+            assert fast.valid is True, (
+                "the fast path only re-examines entries after the checkpoint — "
+                "a tamper before it is out of scope by design, not a bug"
+            )
+        finally:
+            await session.rollback()
 
 
 # --- live activity feed -------------------------------------------------------

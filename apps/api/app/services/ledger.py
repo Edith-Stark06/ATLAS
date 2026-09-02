@@ -143,16 +143,26 @@ class ChainVerification:
     head_hash: str | None
 
 
-def verify_chain(entries: list[ChainEntry]) -> ChainVerification:
+def verify_chain(
+    entries: list[ChainEntry], *, start_from: ChainEntry | None = None
+) -> ChainVerification:
     """Recompute every hash and check every link.
 
     Entries must arrive in ascending `seq`. Three things can be wrong: a
     stored hash that does not match its own contents (the row was edited), a
     `prev_hash` that does not match the previous entry (a row was removed or
     reordered), or a gap in `seq` (a row was deleted from the middle).
+
+    `start_from`, when given, seeds the walk from a known-good entry instead
+    of the genesis — this is the fast-verification path
+    (`ledger_service.verify_since`): `entries` holds only what's new since a
+    checkpoint, and the first of them is checked against the checkpoint's
+    real hash/seq rather than being treated as entry 1 of a fresh chain.
+    Every existing caller passes nothing here and gets the exact original
+    behaviour — a full walk from genesis.
     """
     breaks: list[ChainBreak] = []
-    previous: ChainEntry | None = None
+    previous: ChainEntry | None = start_from
 
     for entry in entries:
         expected_prev = previous.entry_hash if previous else GENESIS_HASH

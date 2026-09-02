@@ -105,13 +105,81 @@ async def append(
 
 async def load_chain(db: AsyncSession) -> list[LedgerEntry]:
     """Every entry in chain order. Verification needs all of them — a
-    partial window cannot prove the part it cannot see."""
-    result = await db.execute(select(LedgerEntry).order_by(LedgerEntry.seq))
-    return list(result.scalars().all())
+    partial window cannot prove the part it cannot see (see verify_chain's
+    own docstring on why a fast, partial check is a different, weaker
+    guarantee, not a faster version of this one).
+
+    Fetched via a server-side cursor (`stream_scalars`, `yield_per`) rather
+    than one query that buffers the whole resultset in the driver at once —
+    this bounds *database-side* memory. The returned list is still the full
+    ordered chain, and is still O(n) in Python-side memory: that part is not
+    optimised away, because nothing here can prove the part it doesn't see,
+    which is exactly the constraint that made this "unbounded" in the first
+    place. What changes is where the resultset gets buffered, not how much
+    of the chain a full verification has to look at.
+    """
+    query = select(LedgerEntry).order_by(LedgerEntry.seq).execution_options(yield_per=1000)
+    result = await db.stream_scalars(query)
+    return [entry async for entry in result]
 
 
 async def verify(db: AsyncSession) -> ledger.ChainVerification:
     return ledger.verify_chain(await load_chain(db))
+
+
+async def verify_since(db: AsyncSession, since_seq: int) -> ledger.ChainVerification | None:
+    """Fast path: verify only what's new since `since_seq`, plus that the
+    anchor entry at `since_seq` itself still matches its recorded hash.
+
+    Deliberately weaker than `verify()`, and documented as such rather than
+    silently: entries strictly *before* the anchor are never re-examined by
+    this call. A tamper to some entry in the middle of an already-checked
+    region is invisible here — only a full walk (`verify()`) can catch that.
+    This exists for cheap, frequent polling ("has anything changed since I
+    last looked"), not as a replacement for periodic full verification.
+
+    Returns None if `since_seq` names no real entry, so the caller can 404
+    rather than silently reporting an empty/vacuous result as a valid chain.
+    """
+    anchor = await db.get(LedgerEntry, since_seq)
+    if anchor is None:
+        return None
+
+    anchor_recomputed = ledger.compute_hash(
+        seq=anchor.seq,
+        prev_hash=anchor.prev_hash,
+        kind=anchor.kind,
+        subject_id=anchor.subject_id,
+        recorded_at=anchor.recorded_at,
+        payload=anchor.payload,
+    )
+    if anchor_recomputed != anchor.entry_hash:
+        # The checkpoint itself was altered — nothing past it can be trusted
+        # either, since every later hash is built on this one.
+        return ledger.ChainVerification(
+            valid=False,
+            entries_checked=0,
+            breaks=[
+                ledger.ChainBreak(
+                    seq=anchor.seq,
+                    reason="anchor entry's contents do not match its stored hash",
+                    expected=anchor_recomputed,
+                    found=anchor.entry_hash,
+                )
+            ],
+            head_hash=anchor.entry_hash,
+        )
+
+    new_entries = list(
+        (
+            await db.execute(
+                select(LedgerEntry).where(LedgerEntry.seq > since_seq).order_by(LedgerEntry.seq)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return ledger.verify_chain(new_entries, start_from=anchor)
 
 
 async def list_entries(

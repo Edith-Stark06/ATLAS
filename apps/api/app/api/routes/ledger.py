@@ -92,13 +92,32 @@ async def list_ledger(
 
 
 @router.get("/verify", response_model=LedgerVerifyResponse)
-async def verify_ledger(db: AsyncSession = Depends(get_db)) -> LedgerVerifyResponse:
+async def verify_ledger(
+    # Aliased so the query param stays camelCase like the rest of the
+    # contract — the alias generator on ApiModel only covers bodies.
+    since_seq: int | None = Query(None, alias="sinceSeq", ge=1),
+    db: AsyncSession = Depends(get_db),
+) -> LedgerVerifyResponse:
     """Recompute every hash and check every link.
 
     Deliberately recomputes rather than trusting a stored flag: a verification
     result that is itself just a database row proves nothing.
+
+    `sinceSeq` opts into a fast, deliberately weaker check: only entries
+    after that checkpoint are re-examined (plus the checkpoint's own hash),
+    not the whole chain — see `ledger_service.verify_since`. The response's
+    `complete` field says which kind of check this was; omit `sinceSeq` for
+    the full walk this endpoint has always done.
     """
-    result = await ledger_service.verify(db)
+    if since_seq is None:
+        result = await ledger_service.verify(db)
+        complete = True
+    else:
+        result = await ledger_service.verify_since(db, since_seq)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Ledger entry {since_seq} not found")
+        complete = False
+
     return LedgerVerifyResponse(
         valid=result.valid,
         entries_checked=result.entries_checked,
@@ -107,6 +126,7 @@ async def verify_ledger(db: AsyncSession = Depends(get_db)) -> LedgerVerifyRespo
             for b in result.breaks
         ],
         head_hash=result.head_hash,
+        complete=complete,
     )
 
 

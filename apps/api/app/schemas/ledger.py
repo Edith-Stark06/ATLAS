@@ -65,6 +65,10 @@ class LedgerVerifyResponse(ApiModel):
     #: Hash of the newest entry. Publishing this externally is what would turn
     #: tamper-evidence into tamper-proofing; the API only reports it.
     head_hash: str | None
+    #: False when `sinceSeq` was supplied — entries strictly before that
+    #: checkpoint were not re-examined by this call. A caller must not read
+    #: `valid: true` here as "the whole chain is intact" unless this is true.
+    complete: bool = True
 
 
 class LedgerStatsResponse(ApiModel):
