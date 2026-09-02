@@ -161,6 +161,23 @@ def load_risk_model() -> RiskModel | None:
     return RiskModel(joblib.load(model_path))
 
 
+def clear_caches() -> None:
+    """Drop every cached loader so the next call re-reads whatever's on disk
+    now, instead of whatever was there when the process started.
+
+    Swapping files on disk (app.ml.promote) does nothing on its own — every
+    loader here is `@lru_cache(maxsize=1)`, cached for the process's whole
+    life, which is exactly why: re-reading several megabytes of joblib per
+    request would put disk I/O in the hot path. `POST /trust/reload-models`
+    is the only thing that calls this — a promotion takes effect on a
+    running process only once something explicitly asks for it, not the
+    instant new bytes land on disk.
+    """
+    load_trust_model.cache_clear()
+    load_simulation_model.cache_clear()
+    load_risk_model.cache_clear()
+
+
 def load_metrics() -> dict | None:
     """The train/baseline comparison report — used to show model provenance
     and evaluation results in the console rather than asserting them blind."""

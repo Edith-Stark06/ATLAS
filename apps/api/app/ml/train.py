@@ -9,8 +9,22 @@ patent's technical disclosure, not just a build log.
 No database access — this trains purely on the synthetic dataset in
 app.ml.dataset, so it is runnable in any environment with the ML deps
 installed, independent of Postgres being up.
+
+`--output-dir` writes a self-contained candidate artifact set elsewhere
+instead of overwriting the live one directly — see `app/ml/promote.py`,
+which compares a candidate's metrics.json against the live one and only
+then, deliberately, swaps them. Every existing caller (CI, the README's
+plain `python -m app.ml.train`) is unaffected: the flag defaults to the
+same `ARTIFACTS_DIR` this always wrote to.
+
+`--seed` overrides `DatasetConfig.seed` — training data is otherwise fully
+deterministic, so a same-config retrain reproduces the current model
+almost exactly. Varying the seed is what makes "train a candidate and
+compare it" produce a genuinely different model to compare, not a rerun
+that trivially matches.
 """
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -207,12 +221,13 @@ def train_simulation_model(train_df, test_df) -> tuple[HistGradientBoostingClass
     return model, metrics
 
 
-def main() -> None:
+def main(*, output_dir: Path = ARTIFACTS_DIR, seed: int | None = None) -> None:
     started = time.monotonic()
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dataset_config = DatasetConfig() if seed is None else DatasetConfig(seed=seed)
 
     print("Generating synthetic training data ...")
-    timelines = generate_agent_timelines(DatasetConfig())
+    timelines = generate_agent_timelines(dataset_config)
     trust_frame = build_trust_training_frame(timelines)
     sim_frame = build_simulation_training_frame(timelines)
 
@@ -257,17 +272,17 @@ def main() -> None:
         f"learned={sim_metrics['learned_log_loss']:.3f}"
     )
 
-    joblib.dump(trust_model, ARTIFACTS_DIR / "trust_model.joblib")
-    joblib.dump(trust_scaler, ARTIFACTS_DIR / "trust_scaler.joblib")
-    joblib.dump(sim_model, ARTIFACTS_DIR / "simulation_model.joblib")
+    joblib.dump(trust_model, output_dir / "trust_model.joblib")
+    joblib.dump(trust_scaler, output_dir / "trust_scaler.joblib")
+    joblib.dump(sim_model, output_dir / "simulation_model.joblib")
 
     metrics = {
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "duration_seconds": round(time.monotonic() - started, 1),
         "dataset": {
-            "n_agents": DatasetConfig().n_agents,
-            "n_steps": DatasetConfig().n_steps,
-            "seed": DatasetConfig().seed,
+            "n_agents": dataset_config.n_agents,
+            "n_steps": dataset_config.n_steps,
+            "seed": dataset_config.seed,
         },
         "trust_model": trust_metrics,
         "anomaly_detection": anomaly_metrics,
@@ -277,15 +292,38 @@ def main() -> None:
     # model, see docs/patent/technical-disclosure.md §5.9) writes its own
     # top-level key to this same file and is independently re-runnable in
     # either order — a plain overwrite here would silently erase it if this
-    # script runs second.
-    metrics_path = ARTIFACTS_DIR / "metrics.json"
+    # script runs second. A fresh candidate dir never has a prior
+    # metrics.json, so this is a no-op merge there — same code, no branch
+    # needed for the two cases.
+    metrics_path = output_dir / "metrics.json"
     existing = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
     existing.update(metrics)
     metrics_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
-    print(f"\nArtifacts written to {ARTIFACTS_DIR}")
+    print(f"\nArtifacts written to {output_dir}")
     print(f"Done in {metrics['duration_seconds']}s")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ARTIFACTS_DIR,
+        help="Write artifacts here instead of the live app/ml/artifacts/ "
+        "(e.g. a candidate directory for app.ml.promote to review).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override DatasetConfig.seed — training data is otherwise "
+        "deterministic, so this is what makes a candidate genuinely "
+        "different from the live model rather than a trivial rerun.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(output_dir=args.output_dir, seed=args.seed)

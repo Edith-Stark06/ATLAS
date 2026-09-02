@@ -1,7 +1,10 @@
 # ATLAS — Project Memory
 
-Complete context handoff. Written 2026-08-24, updated through Phase 15
-(2026-09-01) plus the real-data risk model added 2026-09-02.
+Complete context handoff. Written 2026-08-24, updated through Phase 16
+(2026-09-03) — Phase 15 operational readiness, the real-data risk model,
+agent registration, the real-time activity feed, the IT Ops vertical pack
+(closing out all five mentor-feedback directions), and Phase 16 scale &
+lifecycle all landed since the previous 2026-08-24 write-up.
 
 Repo: https://github.com/Edith-Stark06/ATLAS · branch `main` · local path
 `D:\Documents\Projects\ATLAS`
@@ -483,8 +486,8 @@ boundary is never labelled exact.
 
 ## 7. Current state
 
-- **498 tests pass on a fresh seed, and the suite is now repeatable without
-  one** — see resolved issues below (3 of the 498 are the real-data risk
+- **517 tests pass on a fresh seed, and the suite is now repeatable without
+  one** — see resolved issues below (3 of the 517 are the real-data risk
   model's, and skip when that dataset hasn't been fetched locally).
 - Lint clean (ruff + eslint), typecheck clean, production build clean.
 - Both Docker images built and verified end-to-end: API (runs non-root,
@@ -502,26 +505,17 @@ boundary is never labelled exact.
 ### Known open issues
 
 1. **Ledger `append` is not multi-writer safe** (documented in code).
-2. **`GET /ledger/verify` reads the entire chain unbounded**
-   (`ledger_service.load_chain`) — verification genuinely needs the whole
-   chain to check hash links, so `limit`/`offset` doesn't apply here the way
-   it did for the endpoints in stream 6 below. Fixing this means an
-   incremental/checkpointed verification algorithm — a Phase 16 scale
-   concern, deliberately not attempted in Phase 15.
-3. **`/trust/overview`'s N sequential per-agent round trips are not
-   parallelized.** Each is now cheap after Phase 15's `_load_decisions` fix
-   (window-filtered instead of unbounded), but true parallelization needs
-   one `AsyncSession` per concurrent task — a single `AsyncSession` isn't
-   safe for concurrent use — which is real added complexity better done
-   deliberately in Phase 16, not rushed into the pagination pass.
-4. **No equivalent of the `JWT_SECRET`/`BOOTSTRAP_ADMIN_PASSWORD` production
+2. **A full `GET /ledger/verify` genuinely must read the whole chain** —
+   this is not a lingering gap, it's what the guarantee *means* (see
+   Resolved below for what changed and what deliberately didn't).
+3. **No equivalent of the `JWT_SECRET`/`BOOTSTRAP_ADMIN_PASSWORD` production
    guardrail exists for `DATABASE_URL`/`REDIS_URL`** — see
    `docs/operations/secrets.md`. Left open rather than guessed at, since
    "insecure" for a connection string needs a deliberate definition.
-5. **No self-serve password-change flow.** Rotating the bootstrap admin
+4. **No self-serve password-change flow.** Rotating the bootstrap admin
    password today means minting a replacement admin via `POST /auth/users`
    and retiring the original — see `docs/operations/secrets.md`.
-6. **No live way to submit a vertical pack's domain attributes.**
+5. **No live way to submit a vertical pack's domain attributes.**
    `POST /decisions/execute` and `POST /simulation/run` have no
    `attributes` field on their request schemas — every pack's rules
    (investments, travel, booking, it_ops) are real and correctly enforced
@@ -530,6 +524,10 @@ boundary is never labelled exact.
    straight into the `investigation` JSONB blob. Found while adding
    it_ops; pre-existing for every pack, not something new to that one. See
    §5 Vertical Packs above for the full trace.
+6. **No true live-traffic-split canary for ML models** — `app/ml/promote.py`
+   (see Resolved below) gates promotion on held-out metrics, not on routing
+   a percentage of real traffic to a candidate; that needs weighted routing
+   across replicas, infrastructure this project doesn't have.
 
 ### Resolved (kept for history — both were live for a while, worth knowing why)
 
@@ -615,6 +613,78 @@ verified against the full suite:
    whole-chain reads to verify hash links) and the `/trust/overview` N+1
    query pattern (needs one `AsyncSession` per task to parallelize safely).
    Commit `97ab9cd`.
+
+### Phase 16 — scale & lifecycle (2026-09-03)
+
+Three items were bundled under this name: ledger verification at scale,
+parallelizing `/trust/overview`, and a model-retraining/canary strategy.
+Full exploration of all three before writing anything changed the scope —
+recorded here because the finding is itself worth keeping, not just the
+code:
+
+1. **`/trust/overview` parallelization — investigated, deliberately not
+   built.** The actually expensive thing this issue conflated was fitting a
+   fresh `IsolationForest` per agent (~340ms × N) — already fixed,
+   separately, by making `include_ml_anomaly` opt-in and off by default
+   (`trust_service.py`'s own docstring: "about six seconds of work whose
+   result was never read"). What's left is 3 lightweight,
+   already-window-filtered queries per agent. Parallelizing it would have
+   been the first-ever use of concurrent `AsyncSession`s anywhere in this
+   codebase (grepped `asyncio.gather`/`TaskGroup`/`create_task` across all
+   of `apps/api/app`: zero hits) — real, untested complexity for marginal
+   gain on a call this project's own docs already didn't consider urgent.
+   No code changed; Known open issue #3 (parallelization) is retired as a
+   TODO because the investigation found there wasn't a live one, not
+   because a rewrite fixed it.
+2. **Ledger — chunked full verification, plus a new, honestly-weaker fast
+   path.** `ledger_service.load_chain` now fetches via a server-side cursor
+   (`stream_scalars`/`yield_per`) instead of one query buffering the whole
+   resultset in the driver at once — bounds *database-side* memory only;
+   the returned list is still the full ordered chain, because a partial
+   window genuinely cannot prove the part it can't see (§5 Ledger). New
+   `GET /ledger/verify?sinceSeq=N` (`ledger_service.verify_since`) checks
+   only what's new since a checkpoint plus that the checkpoint entry itself
+   still matches its hash — `LedgerVerifyResponse.complete` says which kind
+   of check ran. Explicitly tested in both directions, not just the
+   reassuring one: `test_verify_since_catches_a_tampered_checkpoint_but_
+   not_an_earlier_tamper` proves a full walk still catches a tamper
+   anywhere in history, and the fast path from a later checkpoint does not
+   — a real limit, not a bug, and asserted as such.
+3. **ML retraining/canary — the real gap, now closed.** No versioning
+   existed at all: `train.py`/`train_risk_model.py` overwrote the one live
+   `*.joblib` set directly, no rollback, no comparison. Both scripts gained
+   `--output-dir` (defaults unchanged — CI and the README's plain
+   `python -m app.ml.train` are unaffected) and `--seed`, so a candidate can
+   be built genuinely differently from live rather than reproducing it
+   (training data is otherwise fully deterministic). New
+   `app/ml/promote.py`: compares candidate `metrics.json` against live on
+   every metric this project already reports, refuses to promote a
+   regression past tolerance without `--force --reason`, then swaps
+   candidate in with a timestamped backup (`rollback` reuses it). New
+   `POST /trust/reload-models` (`RequireAdmin`) clears the `lru_cache`d
+   loaders so a promotion takes effect on a running process without a
+   restart — closes a loop that was previously fully manual (redeploy the
+   whole image; `docker-compose.prod.yml` has no volume for artifacts, they
+   ride along inside `COPY app ./app` as an accident of an unfiltered copy,
+   not a designed mechanism).
+
+   **Real bug caught by actually running this against the real live
+   artifacts, not just reading the code**: the first `promote()`
+   implementation did a wholesale directory swap. Promoting a candidate
+   that only retrained the trust model (no `train_risk_model.py` run) it
+   silently *deleted* the live `risk_model.joblib` — it was never in the
+   candidate directory at all. Caught immediately during verification, not
+   shipped: fixed to overlay onto a full backup of what was live instead of
+   replacing the directory wholesale, with `metrics.json` getting the same
+   per-key merge `train.py`/`train_risk_model.py` already do internally.
+   Two regression tests lock this in
+   (`test_promote_preserves_a_live_artifact_the_candidate_never_touched`,
+   `test_promote_merges_metrics_json_rather_than_replacing_it`).
+
+   No live traffic-split canary (routing a percentage of real requests to
+   a candidate) — needs weighted routing across replicas, infrastructure
+   this project doesn't have; comparison-gated promotion serves the same
+   don't-ship-a-worse-model goal without it. See Known open issue #6.
 
 ---
 

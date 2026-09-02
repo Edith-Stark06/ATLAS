@@ -80,6 +80,17 @@ def test_ml_model_info_matches_what_agents_report(client):
         assert evaluation["scoreSource"] == "heuristic"
 
 
+def test_reloading_models_reports_the_same_state_when_nothing_on_disk_changed(client):
+    """POST /reload-models clears the cached loaders and re-reads disk — with
+    nothing actually swapped in between, it must report exactly what
+    /model-info already did, not something newly stale or newly wrong."""
+    before = client.get("/api/v1/trust/model-info").json()
+    reloaded = client.post("/api/v1/trust/reload-models").json()
+
+    assert reloaded["available"] == before["available"]
+    assert reloaded["trainedAt"] == before["trainedAt"]
+
+
 def test_adverse_decisions_produce_a_penalty(client):
     """The Expense agent has one blocked and one escalated decision seeded."""
     evaluation = client.get("/api/v1/trust/agents/agt-expense-02").json()

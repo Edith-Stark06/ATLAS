@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import RequireOperator
+from app.api.deps import RequireAdmin, RequireOperator
 from app.core.database import get_db
 from app.ml import models as ml_models
 from app.models import Agent
@@ -129,6 +129,38 @@ async def model_info() -> ModelInfoRead:
     """Provenance and evaluation results for the trained models — the
     baseline-vs-learned comparison, not asserted, read back from what
     `python -m app.ml.train` actually measured."""
+    metrics = ml_models.load_metrics()
+    if metrics is None:
+        return ModelInfoRead(available=False)
+    return ModelInfoRead(available=True, trained_at=metrics.get("trained_at"), metrics=metrics)
+
+
+@router.post(
+    "/reload-models",
+    response_model=ModelInfoRead,
+    # Swapping the live decision-making model is at least as sensitive as
+    # creating a user — same bar (governance.py::create_agent, auth.py::
+    # create_user), not something an operator credential should be able to
+    # trigger on its own.
+    dependencies=[RequireAdmin],
+)
+async def reload_models() -> ModelInfoRead:
+    """Pick up whatever's currently on disk in app/ml/artifacts/, without a
+    restart.
+
+    Every loader here is cached for the process's whole life
+    (`app/ml/models.py`'s own docstring: re-reading several megabytes per
+    request would put disk I/O in the hot path) — `app/ml/promote.py`
+    swapping files on disk does nothing to a running process until
+    something calls this. Also clears `ledger_service.model_fingerprint`'s
+    cache, so the next decision's ledger entry pins the model that actually
+    scored it, not a fingerprint of whatever was live before this call.
+    """
+    from app.services import ledger_service
+
+    ml_models.clear_caches()
+    ledger_service.model_fingerprint.cache_clear()
+
     metrics = ml_models.load_metrics()
     if metrics is None:
         return ModelInfoRead(available=False)

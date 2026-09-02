@@ -27,6 +27,7 @@ PROJECT_MEMORY.md §6). This model instead trains the piece a real dataset
 See docs/patent/technical-disclosure.md §5.9 for the full scope statement.
 """
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -108,24 +109,26 @@ def train_risk_model(split: RealDataSplit) -> tuple[HistGradientBoostingClassifi
     return model, metrics
 
 
-def _write_metrics(new_section: dict) -> None:
+def _write_metrics(output_dir: Path, new_section: dict) -> None:
     """Merges into metrics.json rather than overwriting it — app.ml.train and
     this script are independently re-runnable in either order, and each
     writes only its own top-level key. A plain overwrite here would silently
-    erase whichever section the *other* script wrote first.
+    erase whichever section the *other* script wrote first. (A fresh
+    candidate dir never has a prior metrics.json, so this is a no-op merge
+    there — same code, no branch needed for the two cases.)
     """
-    metrics_path = ARTIFACTS_DIR / "metrics.json"
+    metrics_path = output_dir / "metrics.json"
     existing = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
     existing["real_data_risk_model"] = new_section
     metrics_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
 
-def main() -> None:
+def main(*, output_dir: Path = ARTIFACTS_DIR, seed: int | None = None) -> None:
     started = time.monotonic()
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading real transaction data ...")
-    split = build_risk_training_split()
+    split = build_risk_training_split() if seed is None else build_risk_training_split(seed=seed)
     print(
         f"  {split.x_train.shape[0] + split.x_test.shape[0]} transactions "
         f"({split.n_train_fraud + split.n_test_fraud} labelled fraud)"
@@ -145,7 +148,7 @@ def main() -> None:
         f"{metrics[f'learned_recall_at_{DECISION_THRESHOLD}']:.3f}"
     )
 
-    joblib.dump(model, ARTIFACTS_DIR / "risk_model.joblib")
+    joblib.dump(model, output_dir / "risk_model.joblib")
 
     metrics_out = {
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -159,11 +162,32 @@ def main() -> None:
         },
         **metrics,
     }
-    _write_metrics(metrics_out)
+    _write_metrics(output_dir, metrics_out)
 
-    print(f"\nArtifact written to {ARTIFACTS_DIR / 'risk_model.joblib'}")
+    print(f"\nArtifact written to {output_dir / 'risk_model.joblib'}")
     print(f"Done in {round(time.monotonic() - started, 1)}s")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ARTIFACTS_DIR,
+        help="Write the artifact here instead of the live app/ml/artifacts/ "
+        "(e.g. a candidate directory for app.ml.promote to review).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override the train/test split seed (real_data.py default: "
+        "20260902) — the underlying data is static and real, so this is "
+        "what makes a candidate's split genuinely different to compare.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(output_dir=args.output_dir, seed=args.seed)

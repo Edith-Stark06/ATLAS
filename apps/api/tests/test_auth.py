@@ -320,6 +320,14 @@ def test_an_operator_cannot_register_an_agent(client: TestClient, api: TestClien
     assert response.status_code == 403
 
 
+def test_an_operator_cannot_reload_models(client: TestClient, api: TestClient):
+    """Swapping the live decision-making model is at least as sensitive as
+    creating a user or registering an agent — same admin-only bar."""
+    token = mint_key(client, role="operator")
+    response = api.post("/api/v1/trust/reload-models", headers=as_key(api, token))
+    assert response.status_code == 403
+
+
 # --- agent-bound keys --------------------------------------------------------
 
 
