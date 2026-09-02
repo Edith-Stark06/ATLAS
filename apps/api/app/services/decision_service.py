@@ -19,15 +19,29 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Agent, Decision, LedgerEntry, PolicyCheck
-from app.models.enums import DecisionOutcome
-from app.services import ledger, ledger_service, simulation_service
+from app.models import ActivityItem, Agent, Decision, LedgerEntry, PolicyCheck
+from app.models.enums import ActivityTone, DecisionOutcome
+from app.services import activity_stream, ledger, ledger_service, simulation_service
 from app.services.policy_engine import Effect
 from app.services.simulation_service import SimulationRequest, SimulationResult
 
 #: Outcomes that mean the action does not run. Kept explicit rather than
 #: `!= APPROVED` so adding a fourth outcome forces a decision here.
 NON_EXECUTING = frozenset({DecisionOutcome.ESCALATED, DecisionOutcome.BLOCKED})
+
+#: Every DecisionOutcome maps to an ActivityTone — exhaustive on purpose
+#: (see _activity_tone) so a new outcome forces a decision here too.
+_ACTIVITY_TONE = {
+    DecisionOutcome.APPROVED: ActivityTone.SUCCESS,
+    DecisionOutcome.ESCALATED: ActivityTone.WARNING,
+    DecisionOutcome.BLOCKED: ActivityTone.DANGER,
+}
+
+
+def _activity_message(agent: Agent | None, decision: Decision) -> str:
+    who = agent.name if agent is not None else decision.agent_id
+    action = decision.action if len(decision.action) <= 80 else decision.action[:77] + "..."
+    return f"{who} — {action} {decision.outcome.value}."
 
 
 class AgentNotFound(LookupError):
@@ -283,9 +297,28 @@ async def execute(db: AsyncSession, request: ExecuteRequest) -> ExecuteResult:
         recorded_at=decided_at,
     )
 
-    # One commit for the decision, its policy checks, its simulation and its
-    # ledger entry. Either all of it is on the record or none of it is.
+    # Same commit as the decision, its policy checks, its simulation and its
+    # ledger entry — an activity item claiming a decision happened must not
+    # exist for a decision that didn't (id reuses decision_id: already
+    # unique, already within the column's length).
+    activity = ActivityItem(
+        id=decision_id,
+        message=_activity_message(agent, decision),
+        at=decided_at,
+        tone=_ACTIVITY_TONE[outcome],
+    )
+    db.add(activity)
+
+    # One commit for the decision, its policy checks, its simulation, its
+    # ledger entry, and its activity item. Either all of it is on the
+    # record or none of it is.
     await db.commit()
+
+    # After commit, not before: never announce an event for data that
+    # didn't actually persist. Publish failure doesn't undo the commit
+    # above or fail this request — see activity_stream.publish's docstring.
+    await activity_stream.publish(activity)
+
     return ExecuteResult(
         decision=decision,
         simulation=result,

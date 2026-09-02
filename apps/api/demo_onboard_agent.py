@@ -35,7 +35,10 @@ def _login(client: httpx.Client) -> dict[str, str]:
     settings = get_settings()
     response = client.post(
         "/auth/login",
-        json={"email": settings.bootstrap_admin_email, "password": settings.bootstrap_admin_password},
+        json={
+            "email": settings.bootstrap_admin_email,
+            "password": settings.bootstrap_admin_password,
+        },
     )
     response.raise_for_status()
     token = response.json()["accessToken"]
@@ -59,7 +62,9 @@ def _register(client: httpx.Client, admin_headers: dict, agent_id: str, name: st
         return
     response.raise_for_status()
     agent = response.json()
-    print(f"  Registered {agent_id}: lifecycle={agent['lifecycle']} trustScore={agent['trustScore']}")
+    print(
+        f"  Registered {agent_id}: lifecycle={agent['lifecycle']} trustScore={agent['trustScore']}"
+    )
 
 
 def _mint_key(client: httpx.Client, admin_headers: dict, agent_id: str) -> dict[str, str]:
@@ -74,7 +79,13 @@ def _mint_key(client: httpx.Client, admin_headers: dict, agent_id: str) -> dict[
 
 
 def _commit_decisions(
-    client: httpx.Client, headers: dict, agent_id: str, *, n: int, risk_range: tuple[int, int], seed: int
+    client: httpx.Client,
+    headers: dict,
+    agent_id: str,
+    *,
+    n: int,
+    risk_range: tuple[int, int],
+    seed: int,
 ) -> None:
     rng = random.Random(seed)
     outcomes: dict[str, int] = {}

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,7 @@ from app.schemas.governance import (
     PolicyRead,
     SimulationRunRead,
 )
+from app.services import activity_stream
 from app.services.trust_engine import FACTOR_LABELS, FACTOR_WEIGHTS, compute_base_score
 
 router = APIRouter()
@@ -206,3 +208,21 @@ async def list_activity(
 ) -> list[ActivityItem]:
     result = await db.execute(select(ActivityItem).order_by(ActivityItem.at.desc()).limit(limit))
     return list(result.scalars().all())
+
+
+@router.get("/activity/stream", tags=["activity"])
+async def stream_activity() -> StreamingResponse:
+    """Server-Sent Events: one line per activity item as it's committed,
+    plus a heartbeat comment on each idle period. See
+    app/services/activity_stream.py for the publish side (decision_service)
+    and why Redis Pub/Sub rather than an in-process bus.
+
+    X-Accel-Buffering: no is the documented fix for a reverse proxy
+    buffering an SSE response into one chunk instead of streaming it —
+    without it this would appear to hang behind nginx or similar.
+    """
+    return StreamingResponse(
+        activity_stream.events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

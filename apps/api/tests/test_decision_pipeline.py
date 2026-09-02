@@ -239,6 +239,104 @@ def test_an_unknown_ledger_entry_is_a_404(client):
     assert client.get("/api/v1/ledger/999999").status_code == 404
 
 
+# --- live activity feed -------------------------------------------------------
+
+
+async def test_committing_a_decision_writes_a_real_activity_item(client):
+    """ActivityItem existed before anything wrote to it at runtime — every
+    row that ever existed came from app/seed.py's demo data. This is the
+    regression test for that gap actually being closed: a real commit must
+    leave a real, retrievable activity row, not just a seeded illusion of
+    one."""
+    from app.core.database import AsyncSessionLocal
+    from app.models import ActivityItem
+    from app.models.enums import ActivityTone
+
+    result = execute(client, action="Live feed check", riskScore=5)
+
+    async with AsyncSessionLocal() as session:
+        item = await session.get(ActivityItem, result["decisionId"])
+
+    assert item is not None
+    assert item.tone in {ActivityTone.SUCCESS, ActivityTone.WARNING, ActivityTone.DANGER}
+    assert "Live feed check" in item.message
+
+
+async def test_committing_a_decision_publishes_a_live_activity_event(client):
+    """Subscribed directly via Pub/Sub, bypassing the HTTP/SSE layer — this
+    proves the publish side (decision_service.execute ->
+    activity_stream.publish) works without depending on StreamingResponse's
+    exact framing, which the smoke test below covers separately.
+
+    `client`'s own requests run on TestClient's persistent background loop,
+    while this test function runs on pytest-asyncio's per-test loop —
+    different loops, but get_redis_client() (app/core/redis.py) rebinds per
+    running loop rather than caching one connection forever, precisely so
+    two different loops each get a correct, independent client to the same
+    Redis server. Pub/Sub across separate connections is exactly how it's
+    meant to be used regardless.
+    """
+    import json
+
+    from app.core.redis import get_redis_client
+    from app.services.activity_stream import ACTIVITY_CHANNEL
+
+    pubsub = get_redis_client().pubsub()
+    await pubsub.subscribe(ACTIVITY_CHANNEL)
+    try:
+        # redis-py's get_message() checks the socket exactly once per call —
+        # it does not loop past the subscribe confirmation to keep waiting
+        # for a real message within one timeout window (confirmed against
+        # its source: a single parse_response(timeout=timeout), no retry).
+        # The production generator (activity_stream.events) already loops
+        # via `while True`, so this only affects a test making one bare
+        # call — loop here to match, rather than call it once and assume.
+        confirmation = await pubsub.get_message(timeout=2.0)
+        assert confirmation["type"] == "subscribe"
+
+        result = execute(client, action="Pub/sub check", riskScore=5)
+
+        message = None
+        for _ in range(10):
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message is not None:
+                break
+        assert message is not None, "no event published within 10s"
+        payload = json.loads(message["data"])
+        assert payload["id"] == result["decisionId"]
+        assert "Pub/sub check" in payload["message"]
+    finally:
+        await pubsub.unsubscribe(ACTIVITY_CHANNEL)
+        await pubsub.aclose()
+
+
+async def test_the_activity_stream_generator_yields_sse_framed_lines():
+    """Exercises app.services.activity_stream.events() directly rather than
+    through GET /activity/stream via TestClient — the endpoint's generator
+    never terminates on its own (by design: it's a live stream), and
+    Starlette's BaseHTTPMiddleware consumes a streaming response through a
+    background task that returns control to the caller once headers/the
+    first chunk are available, not once the stream ends. Driving that
+    through TestClient.stream() in this environment hung indefinitely
+    rather than returning after the first line, even reading only one.
+    Testing the generator itself is both more reliable and more precise:
+    it exercises the actual novel logic (SSE framing, the connected
+    preamble, cleanup on close) without depending on exactly how
+    TestClient's streaming plumbing happens to behave here. The pub/sub
+    test above already proves the real publish -> delivery path end to end;
+    manual verification (docs/PROJECT_MEMORY.md) covers the full HTTP
+    round trip through the actual endpoint.
+    """
+    from app.services.activity_stream import events
+
+    gen = events()
+    try:
+        first = await anext(gen)
+        assert first == ": connected\n\n"
+    finally:
+        await gen.aclose()
+
+
 # --- tamper detection against real stored rows -------------------------------
 
 
