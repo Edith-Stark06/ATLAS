@@ -5,13 +5,14 @@ export default function ConsoleLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    // No background colour here — the ambient gradient on <body> shows
-    // through, which is what gives panels something to sit above.
-    <div className="flex h-screen overflow-hidden text-on-background selection:bg-primary selection:text-on-primary">
+    <div className="min-h-screen bg-surface-base text-on-background">
       <Sidebar />
-      <div className="ml-64 flex flex-1 flex-col overflow-hidden">
+      {/* The rail is fixed, so the content column is offset rather than
+          flexed — that keeps the main region a normal document scroller and
+          the sticky top bar behaves. */}
+      <div className="flex min-h-screen flex-col lg:pl-60">
         <Topbar />
-        <main className="custom-scrollbar flex-1 overflow-y-auto p-container-padding">
+        <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 lg:px-6 lg:py-6">
           {children}
         </main>
       </div>

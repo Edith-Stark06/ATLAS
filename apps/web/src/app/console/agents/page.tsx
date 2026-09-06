@@ -1,137 +1,203 @@
-import { Bot, KeyRound, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ChevronRight, Boxes, ShieldAlert, ShieldCheck, Zap } from "lucide-react";
+import Link from "next/link";
 
-import { LifecycleBadge, trustColor } from "@/components/ui/lifecycle-badge";
+import { TrustDelta } from "@/components/console/agent-row";
+import { ApiError, EmptyState } from "@/components/ui/api-error";
+import { Meter } from "@/components/ui/charts";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { LifecycleBadge, trustColor, trustFill } from "@/components/ui/lifecycle-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
-import { ApiError } from "@/components/ui/api-error";
 import { fetchAgents, tryFetch } from "@/lib/api";
+import type { Agent } from "@/lib/types";
 import { cn, formatTime } from "@/lib/utils";
 
 export const metadata = { title: "Agent Registry — ATLAS" };
 export const dynamic = "force-dynamic";
 
-const COLUMNS = [
-  "Agent Identity",
-  "Owner / Domain",
-  "Trust / Trend",
-  "Model / Audit",
-  "Last Decision",
-  "Status",
+const COLUMNS: Column<Agent>[] = [
+  {
+    key: "agent",
+    header: "Agent",
+    width: "24%",
+    cell: (agent) => (
+      <>
+        <p className="truncate text-body-md text-on-surface">{agent.name}</p>
+        <p className="mt-0.5 font-mono text-label-mono-xs text-outline">{agent.id}</p>
+        {/* Below `md` the Status column is dropped rather than squeezed — a
+            truncated "ONBOARDIN…" chip says less than no chip at all — so the
+            state rides along under the name instead. */}
+        <span className="mt-1 inline-flex md:hidden">
+          <LifecycleBadge state={agent.lifecycle} />
+        </span>
+      </>
+    ),
+  },
+  {
+    key: "domain",
+    header: "Domain",
+    width: "15%",
+    hideBelow: "md",
+    cell: (agent) => (
+      <>
+        <p className="truncate text-body-sm text-on-surface-variant">{agent.capability}</p>
+        <p className="mt-0.5 truncate text-label-mono-xs text-outline">{agent.owner}</p>
+      </>
+    ),
+  },
+  {
+    key: "trust",
+    header: "Trust",
+    width: "13%",
+    cell: (agent) => (
+      <div className="flex items-center gap-2.5">
+        <Meter
+          value={agent.trustScore}
+          color={trustFill(agent.trustScore)}
+          className="hidden w-16 shrink-0 lg:block"
+        />
+        <span className={cn("font-mono text-body-md", trustColor(agent.trustScore))}>
+          {agent.trustScore}
+        </span>
+        <TrustDelta delta={agent.trustDelta} />
+      </div>
+    ),
+  },
+  {
+    key: "authority",
+    header: "Auth",
+    align: "right",
+    width: "5%",
+    hideBelow: "xl",
+    cell: (agent) => (
+      <span className="font-mono text-body-sm text-on-surface-variant">
+        L{agent.authorityLevel}
+      </span>
+    ),
+  },
+  {
+    key: "model",
+    header: "Model",
+    width: "11%",
+    hideBelow: "xl",
+    cell: (agent) => (
+      <>
+        <p className="truncate font-mono text-label-mono text-on-surface-variant">
+          {agent.model}
+        </p>
+        <p className="mt-0.5 truncate font-mono text-label-mono-xs text-outline">
+          {agent.lastAuditAt}
+        </p>
+      </>
+    ),
+  },
+  {
+    key: "last",
+    header: "Last action",
+    width: "20%",
+    hideBelow: "lg",
+    cell: (agent) => (
+      <>
+        <p className="truncate text-body-sm text-on-surface-variant">{agent.lastDecision}</p>
+        <p className="mt-0.5 font-mono text-label-mono-xs text-outline">
+          {formatTime(agent.lastActiveAt)} · {agent.decisionsToday.toLocaleString("en-US")}{" "}
+          today
+        </p>
+      </>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    width: "8%",
+    hideBelow: "md",
+    cell: (agent) => <LifecycleBadge state={agent.lifecycle} />,
+  },
+  {
+    key: "open",
+    header: <span className="sr-only">Open</span>,
+    align: "right",
+    width: "4%",
+    cell: (agent) => (
+      <Link
+        href={`/console/agents/${encodeURIComponent(agent.id)}`}
+        aria-label={`Open ${agent.name}`}
+        className="inline-flex text-outline transition-colors hover:text-primary"
+      >
+        <ChevronRight className="size-4" />
+      </Link>
+    ),
+  },
 ];
 
 export default async function AgentRegistryPage() {
   const result = await tryFetch(fetchAgents);
 
+  const header = (
+    <PageHeader
+      eyebrow="Agents"
+      title="Agent registry"
+      description="Every registered autonomous entity, the job it does, and the trust state it currently carries."
+    />
+  );
+
   if (!result.ok) {
     return (
       <>
-        <PageHeader
-          title="Agent"
-          highlight="Registry"
-          description="Inventory of registered autonomous entities, each carrying a continuously evaluated trust state."
-        />
+        {header}
         <ApiError error={result.error} />
       </>
     );
   }
 
-  const AGENTS = result.data;
-  const trusted = AGENTS.filter((a) => a.lifecycle === "trusted").length;
-  const needsAttention = AGENTS.filter(
-    (a) => a.lifecycle === "review" || a.lifecycle === "anomaly",
+  const agents = result.data;
+  const trusted = agents.filter((agent) => agent.lifecycle === "trusted").length;
+  const needsAttention = agents.filter(
+    (agent) => agent.lifecycle === "review" || agent.lifecycle === "anomaly",
   ).length;
-  const totalDecisions = AGENTS.reduce((sum, a) => sum + a.decisionsToday, 0);
+  const totalDecisions = agents.reduce((sum, agent) => sum + agent.decisionsToday, 0);
 
   return (
     <>
-      <PageHeader
-        title="Agent"
-        highlight="Registry"
-        description={`Complete inventory of ${AGENTS.length} registered autonomous entities, each carrying a continuously evaluated trust state.`}
-      />
+      {header}
 
-      <div className="mb-stack-md grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Registered Agents" value={String(AGENTS.length)} icon={Bot} tone="secondary" />
-        <StatCard label="Trusted Tier" value={String(trusted)} icon={ShieldCheck} tone="tertiary" />
-        <StatCard label="Needs Attention" value={String(needsAttention)} icon={ShieldAlert} tone="error" />
+      <div className="mb-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <StatCard label="Registered" value={String(agents.length)} icon={Boxes} />
         <StatCard
-          label="Decisions Today"
+          label="Trusted Tier"
+          value={String(trusted)}
+          icon={ShieldCheck}
+          tone="tertiary"
+          hint={`of ${agents.length}`}
+        />
+        <StatCard
+          label="Needs attention"
+          value={String(needsAttention)}
+          icon={ShieldAlert}
+          tone={needsAttention > 0 ? "warning" : "tertiary"}
+        />
+        <StatCard
+          label="Decisions today"
           value={totalDecisions.toLocaleString("en-US")}
-          icon={KeyRound}
-          tone="primary"
+          icon={Zap}
         />
       </div>
 
       <Panel>
         <PanelHeader
-          title="Registered Agents"
-          description="Trust scores recompute continuously; lifecycle state reflects the latest evaluation."
+          title="Registered agents"
+          description="Trust recomputes continuously; lifecycle state reflects the latest evaluation."
         />
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse">
-            <thead>
-              <tr className="border-b border-white/5">
-                {COLUMNS.map((col) => (
-                  <th
-                    key={col}
-                    scope="col"
-                    className="px-6 py-3 text-left font-mono text-status-label uppercase text-on-surface-variant"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {AGENTS.map((agent) => (
-                <tr key={agent.id} className="transition-colors hover:bg-surface-variant/20">
-                  <td className="px-6 py-4">
-                    <p className="text-body-md text-on-surface">{agent.name}</p>
-                    <p className="font-mono text-status-label text-outline">
-                      {agent.id.toUpperCase()}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-body-sm text-on-surface-variant">{agent.owner}</p>
-                    <p className="font-mono text-status-label text-outline">{agent.capability}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-baseline gap-1">
-                      <span className={cn("text-headline-sm", trustColor(agent.trustScore))}>
-                        {agent.trustScore}
-                      </span>
-                      <span className="font-mono text-status-label text-outline">/100</span>
-                    </div>
-                    <p
-                      className={cn(
-                        "font-mono text-status-label",
-                        agent.trustDelta >= 0 ? "text-tertiary" : "text-error",
-                      )}
-                    >
-                      {agent.trustDelta >= 0 ? "▲" : "▼"} {Math.abs(agent.trustDelta).toFixed(1)} pts
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="font-mono text-body-sm text-on-surface-variant">{agent.model}</p>
-                    <p className="font-mono text-status-label text-outline">
-                      Audit {agent.lastAuditAt} · Lvl {agent.authorityLevel}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-body-sm text-on-surface-variant">{agent.lastDecision}</p>
-                    <p className="font-mono text-status-label text-outline">
-                      {formatTime(agent.lastActiveAt)}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <LifecycleBadge state={agent.lifecycle} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={COLUMNS}
+          rows={agents}
+          rowKey={(agent) => agent.id}
+          onRowHref={(agent) => `/console/agents/${encodeURIComponent(agent.id)}`}
+          fixed
+          minWidthClass="md:min-w-[72rem]"
+          empty={<EmptyState title="No agents registered" />}
+        />
       </Panel>
     </>
   );

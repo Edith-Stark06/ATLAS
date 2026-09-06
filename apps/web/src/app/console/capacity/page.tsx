@@ -11,8 +11,8 @@ export default async function CapacityPage() {
 
   const header = (
     <PageHeader
-      title="Capacity"
-      highlight="Planning"
+      eyebrow="Agents"
+      title="Capacity planning"
       description="What growing a job would demand of governance — how much human review it needs, which agents can safely take the extra work, and which constraint runs out first."
     />
   );

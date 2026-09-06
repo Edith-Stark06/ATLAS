@@ -62,7 +62,7 @@ function AgentRow({
   ).filter((c): c is BenchmarkCriterion => Boolean(c));
 
   return (
-    <tr className={cn("border-b border-white/5 last:border-b-0", isLeader && "bg-tertiary/5")}>
+    <tr className={cn("border-b border-outline-variant last:border-b-0", isLeader && "bg-tertiary/5")}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           {isLeader ? (
@@ -131,8 +131,8 @@ export default async function BenchmarkPage({
 
   const header = (
     <PageHeader
-      title="Agent"
-      highlight="Benchmark"
+      eyebrow="Agents"
+      title="Benchmark"
       description="Given several agents doing the same job, which one should get more of the work — and what would the others have to change to catch up."
     />
   );
@@ -166,7 +166,7 @@ export default async function BenchmarkPage({
     <>
       {header}
 
-      <div className="mb-stack-md flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {cohorts.map((cohort) => (
           <Link
             key={cohort.capability}
@@ -175,7 +175,7 @@ export default async function BenchmarkPage({
               "flex items-center gap-2 rounded border px-3 py-1.5 text-body-sm transition-colors",
               cohort.capability === selected
                 ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-white/10 text-on-surface-variant hover:text-on-surface",
+                : "border-outline-strong text-on-surface-variant hover:text-on-surface",
             )}
           >
             {cohort.capability}
@@ -192,7 +192,7 @@ export default async function BenchmarkPage({
 
           return (
             <>
-              <Panel className="mb-stack-md" interactive={false}>
+              <Panel className="mb-4" interactive={false}>
                 <PanelHeader
                   title={`${benchmark.capability} — ${benchmark.scored.length} agents`}
                   icon={Medal}
@@ -219,7 +219,7 @@ export default async function BenchmarkPage({
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[56rem] border-collapse">
                     <thead>
-                      <tr className="border-b border-white/5">
+                      <tr className="border-b border-outline-variant">
                         <th className="px-4 py-2 text-left font-mono text-status-label uppercase text-on-surface-variant">
                           #
                         </th>
@@ -256,7 +256,7 @@ export default async function BenchmarkPage({
                   </table>
                 </div>
 
-                <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+                <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
                   An agent without a track record cannot be the benchmark, however well it
                   scores — the leader is what every other agent&apos;s gap is measured against,
                   so one lucky decision must not set the bar. Its real score is still shown.
@@ -265,14 +265,14 @@ export default async function BenchmarkPage({
 
               {/* --- what would close the gap --- */}
               {benchmark.comparable && (
-                <div className="mb-stack-md grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                   <Panel interactive={false}>
                     <PanelHeader
                       title="Where the cohort loses ground"
                       icon={GitCompareArrows}
                       description="Ranked by what would actually move the composite, not by raw point difference."
                     />
-                    <ul className="divide-y divide-white/5">
+                    <ul className="divide-y divide-outline-variant">
                       {benchmark.scored
                         .filter((a) => (benchmark.gaps[a.agentId] ?? []).length > 0)
                         .slice(0, 6)
@@ -324,7 +324,7 @@ export default async function BenchmarkPage({
                             "rounded border px-2 py-1 font-mono text-status-label transition-colors",
                             agent.agentId === params.agent
                               ? "border-primary/40 bg-primary/10 text-primary"
-                              : "border-white/10 text-on-surface-variant hover:text-on-surface",
+                              : "border-outline-strong text-on-surface-variant hover:text-on-surface",
                           )}
                         >
                           {agent.agentId.replace("agt-", "")}
@@ -333,11 +333,11 @@ export default async function BenchmarkPage({
                     </div>
 
                     {changesResult === null ? (
-                      <p className="border-t border-white/5 px-6 py-4 text-body-sm text-outline">
+                      <p className="border-t border-outline-variant px-6 py-4 text-body-sm text-outline">
                         No agent selected.
                       </p>
                     ) : !changesResult.ok ? (
-                      <div className="border-t border-white/5 p-4">
+                      <div className="border-t border-outline-variant p-4">
                         <ApiError error={changesResult.error} />
                       </div>
                     ) : (
@@ -348,7 +348,7 @@ export default async function BenchmarkPage({
                         );
 
                         return (
-                          <div className="border-t border-white/5">
+                          <div className="border-t border-outline-variant">
                             <div className="flex flex-wrap items-baseline gap-3 px-6 py-3">
                               <span className="font-mono text-body-md text-on-surface-variant">
                                 {change.beforeScore} → {change.afterScore}
@@ -367,7 +367,7 @@ export default async function BenchmarkPage({
                               </StatusChip>
                             </div>
 
-                            <ul className="divide-y divide-white/5">
+                            <ul className="divide-y divide-outline-variant">
                               {moved.map((contribution) => (
                                 <li
                                   key={contribution.key}
@@ -400,7 +400,7 @@ export default async function BenchmarkPage({
                             </ul>
 
                             {change.residualShare > 0.05 && (
-                              <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+                              <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
                                 <span className="font-mono text-brand-amber">
                                   {(change.residualShare * 100).toFixed(0)}%
                                 </span>{" "}

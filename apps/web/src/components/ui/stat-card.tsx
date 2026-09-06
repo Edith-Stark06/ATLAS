@@ -2,38 +2,54 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-export type StatTone = "primary" | "secondary" | "tertiary" | "error";
+export type StatTone = "primary" | "secondary" | "tertiary" | "error" | "warning";
+
+/**
+ * Tone colours the *value*, not the card. A metric is worth a colour only when
+ * the number itself carries a state — blocked counts, drifting agents — and
+ * plain text otherwise.
+ */
+const VALUE_TONE: Record<StatTone, string> = {
+  primary: "text-on-surface",
+  secondary: "text-on-surface",
+  tertiary: "text-tertiary",
+  warning: "text-brand-amber",
+  error: "text-error",
+};
 
 const ICON_TONE: Record<StatTone, string> = {
-  primary: "text-primary drop-shadow-[0_0_5px_rgb(173_198_255_/_0.5)]",
-  secondary: "text-secondary drop-shadow-[0_0_5px_rgb(76_215_246_/_0.5)]",
-  tertiary: "text-tertiary-green drop-shadow-[0_0_5px_rgb(78_222_163_/_0.5)]",
-  error: "text-error drop-shadow-[0_0_5px_rgb(255_180_171_/_0.5)]",
+  primary: "text-outline",
+  secondary: "text-outline",
+  tertiary: "text-tertiary/70",
+  warning: "text-brand-amber/70",
+  error: "text-error/70",
 };
 
-const GLOW_TONE: Record<StatTone, string> = {
-  primary: "from-primary/10",
-  secondary: "from-secondary/10",
-  tertiary: "from-tertiary-green/10",
-  error: "from-error/10",
-};
-
+/**
+ * A compact metric tile: label, figure, optional delta. Deliberately small —
+ * a row of these is a summary bar, not the page's subject.
+ */
 export function StatCard({
   label,
   value,
   icon: Icon,
-  tone = "secondary",
+  tone = "primary",
   delta,
+  deltaTone = "neutral",
+  hint,
   className,
   delay,
-  /** Marks this as the headline metric — ringed, glowing, larger numeral. */
+  /** Marks the page's headline number: larger figure, violet hairline. */
   featured = false,
 }: {
   label: string;
   value: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   tone?: StatTone;
   delta?: string;
+  deltaTone?: "up" | "down" | "neutral";
+  /** Denominator or unit, shown beside the figure. */
+  hint?: string;
   className?: string;
   delay?: number;
   featured?: boolean;
@@ -41,43 +57,61 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "glass-panel glass-panel-hover group relative flex animate-fade-in-up flex-col justify-between overflow-hidden rounded-xl p-5",
-        featured &&
-          "bg-surface-container/60 ring-1 ring-cyan-glow/30 shadow-[0_0_20px_rgb(6_182_212_/_0.15)]",
+        "surface-card animate-fade-in-up flex min-h-[76px] flex-col justify-between gap-2 px-3.5 py-3",
+        featured && "border-primary/25 bg-primary/[0.04]",
         className,
       )}
       style={delay ? { animationDelay: `${delay}ms` } : undefined}
     >
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100",
-          GLOW_TONE[tone],
+      <div className="flex items-start justify-between gap-2">
+        <span className="eyebrow leading-snug">{label}</span>
+        {Icon && (
+          <Icon className={cn("size-3.5 shrink-0", ICON_TONE[tone])} strokeWidth={1.75} />
         )}
-      />
-      <div className="relative z-10 mb-4 flex items-start justify-between gap-2">
-        <span
-          className={cn(
-            "font-mono text-label-mono transition-colors",
-            featured ? "text-white" : "text-on-surface-variant group-hover:text-white",
-          )}
-        >
-          {label}
-        </span>
-        <Icon className={cn("size-5 shrink-0", ICON_TONE[tone])} />
       </div>
-      <div className="relative z-10 flex items-baseline gap-2">
-        <span
-          className={cn(
-            "tracking-tighter",
-            featured
-              ? "text-[56px] font-bold leading-none text-white drop-shadow-[0_0_10px_rgb(255_255_255_/_0.5)]"
-              : "counter-gradient text-hero-num",
-          )}
-        >
-          {value}
-        </span>
-        {delta && <span className="font-mono text-label-mono text-tertiary-green">{delta}</span>}
+
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <span className={cn("text-metric-num", VALUE_TONE[tone])}>{value}</span>
+        {hint && <span className="text-label-mono-xs text-outline">{hint}</span>}
+        {delta && (
+          <span
+            className={cn(
+              "font-mono text-label-mono-xs",
+              deltaTone === "up" && "text-tertiary",
+              deltaTone === "down" && "text-error",
+              deltaTone === "neutral" && "text-outline",
+            )}
+          >
+            {delta}
+          </span>
+        )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The same figure without a card — for use inside a panel, where a second
+ * border would just be noise.
+ */
+export function Metric({
+  label,
+  value,
+  hint,
+  tone = "primary",
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  tone?: StatTone;
+  className?: string;
+}) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <p className="eyebrow">{label}</p>
+      <p className={cn("mt-1 text-metric-num", VALUE_TONE[tone])}>{value}</p>
+      {hint && <p className="mt-0.5 text-body-sm text-outline">{hint}</p>}
     </div>
   );
 }

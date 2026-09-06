@@ -5,6 +5,7 @@ import { FlaskConical, Plus, Trash2, TriangleAlert } from "lucide-react";
 
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
+import { FIELD_MONO_CLASS } from "@/components/ui/field";
 import { simulatePolicyRule } from "@/lib/api-client";
 import type {
   PolicyRule,
@@ -36,8 +37,7 @@ const EFFECT_LABELS: Record<RuleEffect, string> = {
 const MEMBERSHIP_OPERATORS: RuleOperator[] = ["in", "not_in"];
 const NUMERIC_OPERATORS: RuleOperator[] = ["lt", "lte", "gt", "gte"];
 
-const SELECT_CLASS =
-  "rounded border border-white/10 bg-surface-container-high px-2 py-1.5 font-mono text-body-sm text-on-surface focus:border-secondary focus:outline-none";
+const SELECT_CLASS = FIELD_MONO_CLASS;
 
 /** Operators a given field can legally take — mirrors the engine's
  * parse_condition validation so the UI cannot compose a rule the API will
@@ -143,7 +143,7 @@ export function RuleBuilder({
           }
         />
 
-        <div className="flex flex-col gap-3 p-6">
+        <div className="flex flex-col gap-3 px-4 py-3.5">
           {rule.conditions.map((condition, index) => {
             const spec = fieldByKey.get(condition.field);
             const kind = spec?.kind ?? "int";
@@ -271,7 +271,7 @@ export function RuleBuilder({
             )}
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-outline-variant pt-4">
             <span className="w-12 shrink-0 font-mono text-label-mono uppercase text-primary">
               Then
             </span>
@@ -389,7 +389,7 @@ function SimulationResult({ simulation }: { simulation: SimulateRuleResponse }) 
         }
       />
 
-      <dl className="grid grid-cols-3 divide-white/5 md:divide-x">
+      <dl className="grid grid-cols-3 divide-outline-variant md:divide-x">
         {[
           { label: "Catches", value: matched, tone: "text-on-surface" },
           { label: "Would block", value: wouldBlock, tone: "text-error" },
@@ -405,11 +405,11 @@ function SimulationResult({ simulation }: { simulation: SimulateRuleResponse }) 
       </dl>
 
       {caught.length > 0 && (
-        <div className="border-t border-white/5">
+        <div className="border-t border-outline-variant">
           <p className="px-6 py-3 font-mono text-label-mono uppercase text-on-surface-variant">
             Decisions this rule catches
           </p>
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-outline-variant">
             {caught.map((decision) => (
               <DecisionRow key={decision.decisionId} decision={decision} showSimulated />
             ))}
@@ -418,11 +418,11 @@ function SimulationResult({ simulation }: { simulation: SimulateRuleResponse }) 
       )}
 
       {missedRestrictions.length > 0 && (
-        <div className="border-t border-white/5">
+        <div className="border-t border-outline-variant">
           <p className="px-6 py-3 font-mono text-label-mono uppercase text-on-surface-variant">
             Restricted decisions this rule would not catch
           </p>
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-outline-variant">
             {missedRestrictions.map((decision) => (
               <DecisionRow
                 key={decision.decisionId}
@@ -431,7 +431,7 @@ function SimulationResult({ simulation }: { simulation: SimulateRuleResponse }) 
               />
             ))}
           </ul>
-          <p className="border-t border-white/5 px-6 py-3 text-status-label text-outline">
+          <p className="border-t border-outline-variant px-6 py-3 text-status-label text-outline">
             These were escalated or blocked by other policies. This rule on its own does not
             reach them — that is a coverage gap, not an outcome reversal.
           </p>
@@ -439,7 +439,7 @@ function SimulationResult({ simulation }: { simulation: SimulateRuleResponse }) 
       )}
 
       {matched === 0 && missedRestrictions.length === 0 && (
-        <p className="border-t border-white/5 px-6 py-4 text-body-sm text-on-surface-variant">
+        <p className="border-t border-outline-variant px-6 py-4 text-body-sm text-on-surface-variant">
           This rule matches none of the recorded decisions.
         </p>
       )}

@@ -7,12 +7,12 @@ import { CircleCheck, CircleSlash, Play, TriangleAlert } from "lucide-react";
 
 import { OutcomeBadge } from "@/components/ui/outcome-badge";
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
+import { FIELD_MONO_BLOCK_CLASS } from "@/components/ui/field";
 import { executeDecision } from "@/lib/api-client";
 import type { Agent, ExecuteDecisionResponse } from "@/lib/types";
 import { formatUsd } from "@/lib/utils";
 
-const FIELD_CLASS =
-  "rounded border border-white/10 bg-surface-container-high px-2 py-1.5 font-mono text-body-sm text-on-surface focus:border-secondary focus:outline-none";
+const FIELD_CLASS = FIELD_MONO_BLOCK_CLASS;
 
 export function ExecutePanel({ agents }: { agents: Agent[] }) {
   const router = useRouter();
@@ -47,14 +47,14 @@ export function ExecutePanel({ agents }: { agents: Agent[] }) {
   }
 
   return (
-    <Panel className="mb-stack-md" interactive={false}>
+    <Panel className="mb-4" interactive={false}>
       <PanelHeader
         title="Execute an action"
         icon={Play}
         description="Commits for real: writes a decision, its policy checks, and an append-only ledger entry. For a what-if, use the Simulation Engine."
       />
 
-      <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 px-4 py-3.5 md:grid-cols-4">
         <label className="flex flex-col gap-1.5">
           <span className="font-mono text-status-label uppercase text-on-surface-variant">
             Agent
@@ -129,7 +129,7 @@ export function ExecutePanel({ agents }: { agents: Agent[] }) {
       )}
 
       {result && (
-        <div className="border-t border-white/5 px-6 py-4">
+        <div className="border-t border-outline-variant px-6 py-4">
           <div className="mb-3 flex flex-wrap items-center gap-3">
             {result.executed ? (
               <CircleCheck className="size-4 text-tertiary" />

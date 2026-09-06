@@ -1,14 +1,15 @@
 import { AlertTriangle, BadgeCheck, Gavel, Pause, ShieldX, UserSearch } from "lucide-react";
 
 import { RuleBuilder } from "@/components/policy/rule-builder";
-import { ApiError } from "@/components/ui/api-error";
+import { ApiError, EmptyState } from "@/components/ui/api-error";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusChip, type ChipTone } from "@/components/ui/status-chip";
 import { fetchPolicyDetails, fetchRuleVocabulary, tryFetch } from "@/lib/api";
 import type { PolicyDetail, Severity } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Policy Governance — ATLAS" };
 export const dynamic = "force-dynamic";
@@ -51,6 +52,78 @@ function RuleSummary({ policy }: { policy: PolicyDetail }) {
   );
 }
 
+const POLICY_COLUMNS: Column<PolicyDetail>[] = [
+  {
+    key: "policy",
+    header: "Policy / rule",
+    width: "49%",
+    cell: (policy) => (
+      <>
+        <div className="flex items-baseline gap-2">
+          <p className="truncate text-body-md text-on-surface">{policy.name}</p>
+          <span className="shrink-0 font-mono text-label-mono-xs text-outline">
+            {policy.version}
+          </span>
+        </div>
+        <RuleSummary policy={policy} />
+      </>
+    ),
+  },
+  {
+    key: "severity",
+    header: "Severity",
+    width: "13%",
+    cell: (policy) => (
+      <StatusChip tone={SEVERITY_TONE[policy.severity]}>{policy.severity}</StatusChip>
+    ),
+  },
+  {
+    key: "violations",
+    header: "Violations 24h",
+    align: "right",
+    width: "16%",
+    cell: (policy) => (
+      <>
+        <span
+          className={
+            policy.violations24h > 0
+              ? "font-mono text-body-sm text-error"
+              : "font-mono text-body-sm text-on-surface-variant"
+          }
+        >
+          {policy.violations24h}
+        </span>
+        {/* The denominator, always: 3 of 8 is noise, 3 of 8,000 is a finding. */}
+        <span className="ml-1.5 font-mono text-label-mono-xs text-outline">
+          of {policy.evaluations24h.toLocaleString("en-US")}
+        </span>
+      </>
+    ),
+  },
+  {
+    key: "updated",
+    header: "Updated",
+    align: "right",
+    width: "11%",
+    hideBelow: "lg",
+    cell: (policy) => (
+      <span className="font-mono text-label-mono-xs text-outline">
+        {formatDate(policy.updatedAt)}
+      </span>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    width: "11%",
+    cell: (policy) => (
+      <StatusChip tone={policy.enabled ? "success" : "neutral"}>
+        {policy.enabled ? "Active" : "Paused"}
+      </StatusChip>
+    ),
+  },
+];
+
 export default async function PolicyGovernancePage() {
   const [policiesResult, vocabularyResult] = await Promise.all([
     tryFetch(fetchPolicyDetails),
@@ -61,8 +134,8 @@ export default async function PolicyGovernancePage() {
     return (
       <>
         <PageHeader
-          title="Policy"
-          highlight="Governance"
+          eyebrow="Governance"
+          title="Policies"
           description="Context-aware governance powered by live trust signals and policy-as-code."
         />
         <ApiError error={policiesResult.error} />
@@ -85,12 +158,12 @@ export default async function PolicyGovernancePage() {
   return (
     <>
       <PageHeader
-        title="Policy"
-        highlight="Governance"
+        eyebrow="Governance"
+        title="Policies"
         description="Rules are structured data, not code — versioned, evaluable, and simulatable against recorded decisions before they govern anything."
       />
 
-      <div className="mb-stack-md grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Active Policies"
           value={String(active.length)}
@@ -117,14 +190,14 @@ export default async function PolicyGovernancePage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
         <div className="flex flex-col gap-4 xl:col-span-8">
           {vocabulary ? (
             <RuleBuilder vocabulary={vocabulary} initialRule={seedRule} />
           ) : (
             <Panel>
               <PanelHeader title="Rule Builder" />
-              <p className="p-6 text-body-sm text-on-surface-variant">
+              <p className="px-4 py-3.5 text-body-md text-on-surface-variant">
                 Rule vocabulary unavailable — the builder needs the API to tell it which
                 fields and operators the engine accepts.
               </p>
@@ -133,94 +206,42 @@ export default async function PolicyGovernancePage() {
 
           <Panel>
             <PanelHeader
-              title="Policy Ledger"
+              title="Policy ledger"
               description="Every policy version is immutable; editing appends a new one."
             />
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] border-collapse">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    {["Policy / Rule", "Severity", "Violations (24h)", "Updated", "Status"].map(
-                      (col) => (
-                        <th
-                          key={col}
-                          scope="col"
-                          className="px-6 py-3 text-left font-mono text-status-label uppercase text-on-surface-variant"
-                        >
-                          {col}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {policies.map((policy) => (
-                    <tr key={policy.id} className="transition-colors hover:bg-surface-variant/20">
-                      <td className="px-6 py-4">
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-body-md text-on-surface">{policy.name}</p>
-                          <span className="font-mono text-status-label text-outline">
-                            {policy.version}
-                          </span>
-                        </div>
-                        <RuleSummary policy={policy} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusChip tone={SEVERITY_TONE[policy.severity]}>
-                          {policy.severity}
-                        </StatusChip>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={
-                            policy.violations24h > 0
-                              ? "font-mono text-body-sm text-error"
-                              : "font-mono text-body-sm text-on-surface-variant"
-                          }
-                        >
-                          {policy.violations24h}
-                        </span>
-                        <span className="ml-2 font-mono text-status-label text-outline">
-                          of {policy.evaluations24h.toLocaleString("en-US")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-status-label text-outline">
-                        {formatDate(policy.updatedAt)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusChip tone={policy.enabled ? "success" : "neutral"}>
-                          {policy.enabled ? "Active" : "Paused"}
-                        </StatusChip>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={POLICY_COLUMNS}
+              rows={policies}
+              rowKey={(policy) => policy.id}
+              fixed
+              minWidthClass="md:min-w-[46rem]"
+              empty={<EmptyState title="No policies defined" />}
+            />
           </Panel>
         </div>
 
-        <div className="flex flex-col gap-4 xl:col-span-4">
+        <div className="flex flex-col gap-4 xl:sticky xl:top-[76px] xl:col-span-4">
           <Panel>
             <PanelHeader
               title="Emergency Controls"
               icon={AlertTriangle}
               description="Override standard automated governance in critical scenarios."
             />
-            <div className="flex flex-col gap-3 p-6">
+            <div className="flex flex-col gap-2 px-4 py-3.5">
               {EMERGENCY_CONTROLS.map((control) => (
                 <button
                   key={control.label}
                   type="button"
-                  className={`flex items-center gap-3 rounded border bg-transparent px-4 py-3 text-body-sm transition-colors ${control.tone}`}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md border px-3 py-2 text-body-sm transition-colors",
+                    control.tone,
+                  )}
                 >
                   <control.icon className="size-4 shrink-0" />
                   {control.label}
                 </button>
               ))}
-              <p className="mt-1 font-mono text-status-label uppercase text-outline">
-                Requires auth token
-              </p>
+              <p className="eyebrow mt-1">Requires auth token</p>
             </div>
           </Panel>
 
@@ -230,23 +251,21 @@ export default async function PolicyGovernancePage() {
               description="The closed set of fields a rule may reference."
             />
             {vocabulary ? (
-              <ul className="divide-y divide-white/5">
+              <ul className="custom-scrollbar max-h-[26rem] divide-y divide-outline-variant overflow-y-auto">
                 {vocabulary.fields.map((field) => (
-                  <li key={field.key} className="px-6 py-3">
+                  <li key={field.key} className="px-4 py-2.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-body-sm text-on-surface">{field.label}</span>
-                      <span className="font-mono text-status-label text-outline">
+                      <span className="font-mono text-label-mono-xs text-outline">
                         {field.kind}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-status-label text-on-surface-variant">
-                      {field.description}
-                    </p>
+                    <p className="mt-0.5 text-body-sm text-outline">{field.description}</p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="p-6 text-body-sm text-on-surface-variant">Unavailable.</p>
+              <p className="px-4 py-3.5 text-body-md text-on-surface-variant">Unavailable.</p>
             )}
           </Panel>
         </div>

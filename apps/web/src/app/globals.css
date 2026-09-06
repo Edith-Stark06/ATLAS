@@ -1,173 +1,197 @@
 @import "tailwindcss";
 
 /*
- * ATLAS design tokens — "Mission Control Adaptive System".
- * Source of truth: Stitch project 7201764882112418298, design system asset
- * 6cd6facbf327406f8b2e182415cba2fa (mirrored in stitch_export/design-system/).
- * All 7 exported screens are built against these values.
+ * ATLAS design tokens — "Governance Control Plane".
+ *
+ * Graphite surfaces, one restrained violet brand accent, and colour reserved
+ * for state. The ratio is deliberate: ~70% dark neutrals, ~20% typography,
+ * the remainder split between the brand violet and the three semantic states.
+ * If a colour here is not saying "approved", "needs attention", "blocked" or
+ * "this is ATLAS", it should not be a colour.
+ *
+ * Token *names* are inherited from the previous theme so the whole console
+ * re-skins from one place; the values are all new.
  */
 @theme {
-  /* --- Surfaces --- */
-  --color-background: #11131b;
-  --color-surface: #11131b;
-  --color-surface-dim: #11131b;
-  --color-surface-bright: #373942;
-  --color-surface-container-lowest: #0c0e15;
-  --color-surface-container-low: #191b23;
-  --color-surface-container: #1d1f27;
-  --color-surface-container-high: #282a32;
-  --color-surface-container-highest: #33343d;
-  --color-surface-variant: #33343d;
-  --color-surface-tint: #adc6ff;
+  /* --- Surfaces: near-black to graphite, five steps ------------------------ */
+  /* app base — the darkest thing on screen */
+  --color-surface-base: #08090c;
+  --color-background: #0b0d11;
+  --color-surface: #0b0d11;
+  --color-surface-dim: #08090c;
+  /* chrome (sidebar, top bar) sits between base and cards */
+  --color-surface-container-lowest: #0d1015;
+  --color-surface-container-low: #101319;
+  /* the standard card */
+  --color-surface-container: #13161d;
+  /* raised: rows, inputs, wells inside a card */
+  --color-surface-container-high: #181c24;
+  /* highest: hover, tracks, selected rows */
+  --color-surface-container-highest: #1e232c;
+  --color-surface-variant: #1e232c;
+  --color-surface-bright: #262c36;
+  --color-surface-tint: #8b7cff;
 
-  /* --- Foreground --- */
-  --color-on-background: #e1e1ed;
-  --color-on-surface: #e1e1ed;
-  --color-on-surface-variant: #c2c6d6;
-  --color-inverse-surface: #e1e1ed;
-  --color-inverse-on-surface: #2e3039;
+  /* --- Foreground --------------------------------------------------------- */
+  /* warm white, not pure #fff — pure white on near-black glares */
+  --color-on-background: #f0eeec;
+  --color-on-surface: #f0eeec;
+  --color-on-surface-variant: #9ba2b0;
+  --color-inverse-surface: #f0eeec;
+  --color-inverse-on-surface: #13161d;
 
-  /* --- Outlines --- */
-  --color-outline: #8c909f;
-  --color-outline-variant: #424754;
+  /* --- Outlines ----------------------------------------------------------- */
+  /* the workhorse border — barely there, but structural */
+  --color-outline-variant: #242933;
+  --color-outline-strong: #303845;
+  /* tertiary text: timestamps, units, denominators */
+  --color-outline: #676e7c;
 
-  /* --- Primary (Electric Blue) --- */
-  --color-primary: #adc6ff;
-  --color-on-primary: #002e6a;
-  --color-primary-container: #4d8eff;
-  --color-on-primary-container: #00285d;
-  --color-inverse-primary: #005ac2;
-  --color-primary-fixed: #d8e2ff;
-  --color-primary-fixed-dim: #adc6ff;
-  --color-on-primary-fixed: #001a42;
-  --color-on-primary-fixed-variant: #004395;
+  /* --- Primary: ATLAS ultraviolet ----------------------------------------- */
+  /* Brand, not decoration. Active nav, the current selection, one accent per
+     view. Never a fill for a chart series that isn't "ATLAS said so". */
+  --color-primary: #8b7cff;
+  --color-primary-bright: #a08bff;
+  --color-primary-deep: #6455d6;
+  --color-on-primary: #100a2e;
+  --color-primary-container: #6455d6;
+  --color-on-primary-container: #d9d2ff;
+  --color-inverse-primary: #4a3db3;
+  --color-primary-fixed: #d9d2ff;
+  --color-primary-fixed-dim: #a08bff;
+  --color-on-primary-fixed: #16103a;
+  --color-on-primary-fixed-variant: #4a3db3;
 
-  /* --- Secondary (Cyan) --- */
-  --color-secondary: #4cd7f6;
-  --color-on-secondary: #003640;
-  --color-secondary-container: #03b5d3;
-  --color-on-secondary-container: #00424e;
-  --color-secondary-fixed: #acedff;
-  --color-secondary-fixed-dim: #4cd7f6;
-  --color-on-secondary-fixed: #001f26;
-  --color-on-secondary-fixed-variant: #004e5c;
+  /* --- Secondary: deliberately neutral ------------------------------------ */
+  /* Previously cyan. Now a cool graphite so "informational" reads as chrome
+     rather than as a second brand colour competing with the violet. */
+  --color-secondary: #9ba2b0;
+  --color-on-secondary: #0b0d11;
+  --color-secondary-container: #262c36;
+  --color-on-secondary-container: #d3d8e0;
+  --color-secondary-fixed: #d3d8e0;
+  --color-secondary-fixed-dim: #9ba2b0;
+  --color-on-secondary-fixed: #0b0d11;
+  --color-on-secondary-fixed-variant: #676e7c;
 
-  /* --- Tertiary (Emerald) --- */
-  --color-tertiary: #4edea3;
-  --color-on-tertiary: #003824;
-  --color-tertiary-container: #00a572;
-  --color-on-tertiary-container: #00311f;
-  --color-tertiary-fixed: #6ffbbe;
-  --color-tertiary-fixed-dim: #4edea3;
-  --color-on-tertiary-fixed: #002113;
-  --color-on-tertiary-fixed-variant: #005236;
+  /* --- Tertiary: approved / healthy --------------------------------------- */
+  --color-tertiary: #4cc38a;
+  --color-tertiary-green: #4cc38a;
+  --color-on-tertiary: #04160e;
+  --color-tertiary-container: #2f8a60;
+  --color-on-tertiary-container: #b5e8ce;
+  --color-tertiary-fixed: #b5e8ce;
+  --color-tertiary-fixed-dim: #4cc38a;
+  --color-on-tertiary-fixed: #04160e;
+  --color-on-tertiary-fixed-variant: #2f8a60;
 
-  /* --- Error --- */
-  --color-error: #ffb4ab;
-  --color-on-error: #690005;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
+  /* --- Error: blocked / critical ------------------------------------------ */
+  --color-error: #ec6a62;
+  --color-on-error: #200604;
+  --color-error-container: #b23b34;
+  --color-on-error-container: #ffd6d2;
 
-  /* --- Brand accents (raw, for glows/borders) --- */
-  --color-brand-blue: #3b82f6;
-  --color-brand-cyan: #06b6d4;
-  --color-brand-emerald: #10b981;
-  --color-brand-amber: #f59e0b;
+  /* --- Attention: escalation, warnings, drift ------------------------------ */
+  --color-brand-amber: #e8a45c;
 
-  /* --- Premium refinement (Stitch "Premium Refinement" pass) --- */
-  /* The page sits on a darker base than the panels, so glass surfaces read
-     as raised rather than flush. */
-  --color-surface-base: #0c0e15;
-  --color-cyan-glow: #06b6d4;
-  --color-tertiary-green: #4edea3;
+  /* Raw accents kept under their old names so nothing dangles; every one now
+     resolves into the graphite/violet system rather than the old cyan one. */
+  --color-brand-blue: #8b7cff;
+  --color-brand-cyan: #8b7cff;
+  --color-brand-emerald: #4cc38a;
+  --color-cyan-glow: #8b7cff;
 
-  /* --- Typography --- */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* --- Typography ---------------------------------------------------------- */
+  /* Instrument Sans: a grotesque with enough character to be ATLAS's own, and
+     tabular figures that hold a dense table together. Deliberately not Inter. */
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  /* Monospace is for identifiers, hashes and versions only — never body text. */
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
-  --text-headline-lg: 32px;
+  --text-display-sm: 30px;
+  --text-display-sm--line-height: 1.15;
+  --text-display-sm--letter-spacing: -0.025em;
+  --text-display-sm--font-weight: 600;
+
+  --text-headline-lg: 24px;
   --text-headline-lg--line-height: 1.2;
-  --text-headline-lg--letter-spacing: -0.02em;
-  --text-headline-lg--font-weight: 700;
+  --text-headline-lg--letter-spacing: -0.022em;
+  --text-headline-lg--font-weight: 600;
 
-  --text-headline-md: 24px;
+  --text-headline-md: 18px;
   --text-headline-md--line-height: 1.3;
+  --text-headline-md--letter-spacing: -0.015em;
   --text-headline-md--font-weight: 600;
 
-  --text-headline-sm: 18px;
-  --text-headline-sm--line-height: 1.4;
+  --text-headline-sm: 15px;
+  --text-headline-sm--line-height: 1.35;
+  --text-headline-sm--letter-spacing: -0.008em;
   --text-headline-sm--font-weight: 600;
 
-  --text-body-lg: 16px;
-  --text-body-lg--line-height: 1.5;
+  --text-body-lg: 15px;
+  --text-body-lg--line-height: 1.6;
   --text-body-lg--font-weight: 400;
 
-  --text-body-md: 14px;
-  --text-body-md--line-height: 1.5;
+  --text-body-md: 13.5px;
+  --text-body-md--line-height: 1.55;
   --text-body-md--font-weight: 400;
 
-  --text-body-sm: 13px;
-  --text-body-sm--line-height: 1.4;
+  --text-body-sm: 12.5px;
+  --text-body-sm--line-height: 1.5;
   --text-body-sm--font-weight: 400;
 
-  --text-label-mono: 12px;
-  --text-label-mono--line-height: 1;
-  --text-label-mono--letter-spacing: 0.05em;
+  /* Identifiers and technical labels. */
+  --text-label-mono: 11.5px;
+  --text-label-mono--line-height: 1.35;
+  --text-label-mono--letter-spacing: 0.01em;
   --text-label-mono--font-weight: 500;
 
-  --text-status-label: 11px;
-  --text-status-label--line-height: 1;
-  --text-status-label--font-weight: 700;
-
-  /* Oversized numerals for hero metrics — tight tracking so large figures
-     read as one shape rather than spaced digits. */
-  --text-hero-num: 48px;
-  --text-hero-num--line-height: 1;
-  --text-hero-num--letter-spacing: -0.04em;
-  --text-hero-num--font-weight: 800;
-
   --text-label-mono-xs: 10px;
-  --text-label-mono-xs--line-height: 1.2;
-  --text-label-mono-xs--letter-spacing: 0.08em;
+  --text-label-mono-xs--line-height: 1.3;
+  --text-label-mono-xs--letter-spacing: 0.07em;
   --text-label-mono-xs--font-weight: 600;
 
-  /* --- Motion --- */
-  --animate-fade-in-up: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-pulse-glow: pulse-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-spin-slow: spin 40s linear infinite;
-  --animate-spin-slow-reverse: spin 60s linear infinite reverse;
-  --animate-draw-radar: draw-radar 0.5s ease-out both;
-  --animate-draw-line: draw-line 1.5s ease-out both;
+  /* Eyebrow / column header / badge text. */
+  --text-status-label: 10.5px;
+  --text-status-label--line-height: 1.3;
+  --text-status-label--letter-spacing: 0.07em;
+  --text-status-label--font-weight: 600;
+
+  /* Primary metrics. Tight tracking so a large figure reads as one shape. */
+  --text-hero-num: 30px;
+  --text-hero-num--line-height: 1;
+  --text-hero-num--letter-spacing: -0.03em;
+  --text-hero-num--font-weight: 600;
+
+  --text-metric-num: 22px;
+  --text-metric-num--line-height: 1.05;
+  --text-metric-num--letter-spacing: -0.025em;
+  --text-metric-num--font-weight: 600;
+
+  /* --- Motion: short, functional, never decorative ------------------------- */
+  --animate-fade-in-up: fade-in-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-draw-line: draw-line 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-grow-bar: grow-bar 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-slide-in: slide-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   @keyframes fade-in-up {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
   }
 
-  @keyframes pulse-glow {
-    0%,
-    100% {
-      filter: drop-shadow(0 0 15px rgb(6 182 212 / 0.4));
-    }
-    50% {
-      filter: drop-shadow(0 0 25px rgb(6 182 212 / 0.7));
-    }
-  }
-
-  @keyframes draw-radar {
+  @keyframes fade-in {
     from {
       opacity: 0;
-      transform: scale(0.8);
     }
     to {
       opacity: 1;
-      transform: scale(1);
     }
   }
 
@@ -177,23 +201,42 @@
     }
   }
 
-  /* --- Radius (roundness: ROUND_FOUR / "Soft-Industrial") --- */
-  --radius-sm: 0.125rem;
-  --radius-DEFAULT: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  @keyframes grow-bar {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
 
-  /* --- Spacing (4px base) --- */
+  /* New rows arriving in the live feed. */
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* --- Radius: restrained. Nothing here is a pill except a badge. --------- */
+  --radius-sm: 3px;
+  --radius-DEFAULT: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+
+  /* --- Spacing ------------------------------------------------------------ */
   --spacing-unit: 4px;
   --spacing-stack-sm: 8px;
   --spacing-stack-md: 16px;
-  --spacing-stack-lg: 32px;
+  --spacing-stack-lg: 24px;
   --spacing-gutter: 16px;
   --spacing-container-padding: 24px;
-  /* Wider gutter between dashboard modules than inside them — the premium
-     pass leans on breathing room to signal separation instead of borders. */
-  --spacing-col-gap: 24px;
+  --spacing-col-gap: 16px;
 }
 
 @layer base {
@@ -202,79 +245,105 @@
   }
 
   body {
-    /* A darker base than the panels, with a cyan bloom from the top edge —
-       this is what makes glass surfaces read as raised rather than flush. */
     background-color: var(--color-surface-base);
-    background-image:
-      radial-gradient(circle at 50% 0%, rgb(6 182 212 / 0.08) 0%, transparent 60%),
-      linear-gradient(to bottom, var(--color-surface-base) 0%, var(--color-surface) 100%);
-    background-attachment: fixed;
     color: var(--color-on-surface);
-    /* Spelled out rather than var(--font-sans): Tailwind only emits a theme
-       variable once some utility references it, and nothing here uses font-sans. */
-    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+    /* Tabular figures everywhere by default: this console is mostly numbers in
+       columns, and proportional digits make them jitter between renders. */
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Thin, unobtrusive scrollbars — the default Windows bar is heavy enough
-     to break the dark, low-chrome feel of the console. */
+  /* One visible focus treatment for the whole app — a violet ring on the
+     graphite, never `outline: none`. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: rgb(139 124 255 / 0.28);
+    color: var(--color-on-surface);
+  }
+
+  /* Thin scrollbars — the default Windows bar is heavy enough to break the
+     low-chrome feel of a dark console. */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 6px;
+    height: 6px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.1);
-    border-radius: 4px;
+    background: var(--color-outline-variant);
+    border-radius: 6px;
   }
   .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.2);
+    background: var(--color-outline-strong);
   }
 }
 
-/* Elevation level 1 — cards and containers. */
+/*
+ * Surface primitives.
+ *
+ * A card is a flat graphite plane with a 1px border. No blur, no glow, no
+ * gradient: separation comes from the step in background value and the
+ * border, which is what keeps dense screens legible.
+ */
+@utility surface-card {
+  background-color: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+}
+
+/* Kept because a dozen files reference it. Now the same flat card — the name
+   is legacy, the glass is gone. */
 @utility glass-panel {
-  background-color: rgb(29 31 39 / 0.4);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgb(255 255 255 / 0.05);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background-color: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
 }
 
-/* Lift toward the viewer on hover. Suppressed for anyone who has asked the
-   OS to reduce motion. */
+/* Hover is a border and background shift, not a lift. Moving cards under the
+   cursor is noise in an operational screen. */
 @utility glass-panel-hover {
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
   &:hover {
-    transform: translateY(-2px);
-    border-color: rgb(6 182 212 / 0.3);
-    box-shadow:
-      0 12px 40px rgb(0 0 0 / 0.3),
-      0 0 15px rgb(6 182 212 / 0.1);
+    border-color: var(--color-outline-strong);
   }
 }
 
-/* Elevation level 2 — floating overlays that sit above a panel. */
+/* Overlays that sit above a card. */
 @utility glass-overlay {
-  background-color: rgb(40 42 49 / 0.75);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  box-shadow: 0 16px 40px rgb(0 0 0 / 0.4);
+  background-color: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 28px -12px rgb(0 0 0 / 0.7);
 }
 
 @utility glass-panel-active {
-  border-color: rgb(59 130 246 / 0.3);
-  box-shadow: 0 0 12px -2px rgb(173 198 255 / 0.2);
+  border-color: rgb(139 124 255 / 0.4);
 }
 
-/* Hero numerals rendered as a subtle vertical gradient rather than flat
-   white — reads as lit from above, matching the glow language. */
+/* The oversized figures on a metric read flat white; the gradient the old
+   theme used is exactly the "AI dashboard" tell this design avoids. */
 @utility counter-gradient {
-  background: linear-gradient(to bottom, #ffffff, #adc6ff);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--color-on-surface);
+}
+
+/* Column headers, eyebrows, section kickers. */
+@utility eyebrow {
+  font-size: 10.5px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-outline);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -284,8 +353,5 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-  .glass-panel-hover:hover {
-    transform: none;
   }
 }

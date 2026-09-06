@@ -1,37 +1,24 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
   GitBranch,
   Lightbulb,
-  Scale,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
 
+import { RulesInForce } from "@/components/decisions/rules-in-force";
 import { ApiError } from "@/components/ui/api-error";
 import { OutcomeBadge } from "@/components/ui/outcome-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
 import { fetchDecisions, fetchExplanation, tryFetch } from "@/lib/api";
-import type { Counterfactual, ExplanationDriver, RuleEffect } from "@/lib/types";
+import type { Counterfactual, ExplanationDriver } from "@/lib/types";
 import { cn, formatUsd } from "@/lib/utils";
 
 export const metadata = { title: "Explain AI — ATLAS" };
 export const dynamic = "force-dynamic";
-
-const EFFECT_LABELS: Record<RuleEffect, string> = {
-  allow: "Allow",
-  require_human_review: "Require review",
-  block: "Block",
-};
-
-const EFFECT_TONE: Record<RuleEffect, "success" | "warning" | "danger"> = {
-  allow: "success",
-  require_human_review: "warning",
-  block: "danger",
-};
 
 function formatValue(field: string, value: number | null): string {
   if (value === null) return "—";
@@ -82,7 +69,7 @@ function DriverBar({ driver, scale }: { driver: ExplanationDriver; scale: number
 
 function CounterfactualCard({ counterfactual }: { counterfactual: Counterfactual }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-white/8 bg-surface-container-high/40 p-4">
+    <div className="flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-high/40 p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-body-md text-on-surface">{counterfactual.label}</span>
         <StatusChip tone={counterfactual.exact ? "info" : "neutral"}>
@@ -121,8 +108,8 @@ export default async function ExplainPage({
 
   const header = (
     <PageHeader
-      title="Explain"
-      highlight="AI"
+      eyebrow="Mission Control"
+      title="Investigations"
       description="Why a decision came out the way it did — reconstructed from the evidence pinned at the time, not from today's rules."
     />
   );
@@ -161,13 +148,13 @@ export default async function ExplainPage({
               title="Decisions"
               description="Pick one to see the reasoning behind it."
             />
-            <ul className="max-h-[32rem] divide-y divide-white/5 overflow-y-auto">
+            <ul className="max-h-[32rem] divide-y divide-outline-variant overflow-y-auto">
               {decisions.map((decision) => (
                 <li key={decision.id}>
                   <Link
                     href={`/console/explain?decision=${encodeURIComponent(decision.id)}`}
                     className={cn(
-                      "flex flex-wrap items-center gap-2 px-6 py-3 transition-colors hover:bg-white/[0.02]",
+                      "flex flex-wrap items-center gap-2 px-6 py-3 transition-colors hover:bg-surface-container-high",
                       decision.id === selectedId && "bg-primary/5",
                     )}
                   >
@@ -241,7 +228,7 @@ export default async function ExplainPage({
                       }
                     />
                     {explanation.counterfactuals.length > 0 && (
-                      <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 px-4 py-3.5 md:grid-cols-2">
                         {explanation.counterfactuals.map((counterfactual, i) => (
                           <CounterfactualCard
                             key={`${counterfactual.field}-${i}`}
@@ -264,12 +251,12 @@ export default async function ExplainPage({
                           ) : undefined
                         }
                       />
-                      <div className="divide-y divide-white/5">
+                      <div className="divide-y divide-outline-variant">
                         {explanation.drivers.map((driver) => (
                           <DriverBar key={driver.key} driver={driver} scale={scale} />
                         ))}
                       </div>
-                      <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+                      <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
                         Per-factor attribution is not snapshotted, so these describe the agent&apos;s
                         trust <span className="text-on-surface">today</span> — not at the moment of
                         this decision.
@@ -281,46 +268,9 @@ export default async function ExplainPage({
                     <PanelHeader
                       title="Rules in force"
                       icon={ShieldAlert}
-                      description="The versions evaluated at decision time, taken from the pinned record."
+                      description="The versions evaluated at decision time, taken from the pinned record. Rules that matched come first."
                     />
-                    <ul className="divide-y divide-white/5">
-                      {explanation.rules.map((rule) => (
-                        <li
-                          key={rule.policyId}
-                          className={cn(
-                            "flex flex-wrap items-center gap-3 px-6 py-3",
-                            !rule.matched && "opacity-50",
-                          )}
-                        >
-                          <span className="font-mono text-body-sm text-outline">
-                            {rule.policyId}
-                          </span>
-                          <span className="min-w-0 flex-1 basis-40 truncate text-body-sm text-on-surface">
-                            {rule.policyName}
-                          </span>
-                          <span className="font-mono text-status-label text-outline">
-                            {rule.version}
-                          </span>
-                          {rule.matched && rule.effect ? (
-                            <StatusChip tone={EFFECT_TONE[rule.effect]}>
-                              {EFFECT_LABELS[rule.effect]}
-                            </StatusChip>
-                          ) : (
-                            <span className="flex items-center gap-1.5 font-mono text-status-label uppercase text-outline">
-                              {rule.inScope ? (
-                                <>
-                                  <BadgeCheck className="size-3" /> no match
-                                </>
-                              ) : (
-                                <>
-                                  <Scale className="size-3" /> out of scope
-                                </>
-                              )}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
+                    <RulesInForce rules={explanation.rules} />
                   </Panel>
                 </>
               );

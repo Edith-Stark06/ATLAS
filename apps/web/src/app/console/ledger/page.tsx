@@ -1,7 +1,9 @@
 import { CircleCheck, Cpu, ScrollText, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { LedgerEntryRow } from "@/components/ledger/ledger-entry-row";
-import { ApiError } from "@/components/ui/api-error";
+import Link from "next/link";
+
+import { ApiError, EmptyState } from "@/components/ui/api-error";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -28,8 +30,8 @@ export default async function LedgerPage() {
     return (
       <>
         <PageHeader
-          title="Governance"
-          highlight="Ledger"
+          eyebrow="Governance"
+          title="Ledger"
           description="An append-only record of every decision, the rule versions it was judged against, and the model that scored it."
         />
         <ApiError error={entriesResult.error} />
@@ -45,12 +47,12 @@ export default async function LedgerPage() {
   return (
     <>
       <PageHeader
-        title="Governance"
-        highlight="Ledger"
+        eyebrow="Governance"
+        title="Ledger"
         description="An append-only record of every decision, the rule versions it was judged against, and the model that scored it."
       />
 
-      <Panel className="mb-stack-md" interactive={false}>
+      <Panel className="mb-4" interactive={false}>
         <PanelHeader
           title="Chain integrity"
           icon={valid ? CircleCheck : ShieldAlert}
@@ -68,7 +70,7 @@ export default async function LedgerPage() {
           }
         />
 
-        <dl className="grid grid-cols-2 divide-white/5 md:grid-cols-4 md:divide-x">
+        <dl className="grid grid-cols-2 divide-outline-variant md:grid-cols-4 md:divide-x">
           <div className="px-6 py-4">
             <dt className="font-mono text-status-label uppercase text-on-surface-variant">
               Entries
@@ -104,7 +106,7 @@ export default async function LedgerPage() {
         </dl>
 
         {verification && (
-          <div className="border-t border-white/5 px-6 py-4">
+          <div className="border-t border-outline-variant px-6 py-4">
             <p className="font-mono text-status-label uppercase text-on-surface-variant">
               Head hash
             </p>
@@ -126,11 +128,11 @@ export default async function LedgerPage() {
         )}
 
         {verification && !valid && (
-          <ul className="border-t border-white/5">
+          <ul className="border-t border-outline-variant">
             {verification.breaks.map((chainBreak, i) => (
               <li
                 key={`${chainBreak.seq}-${i}`}
-                className="flex items-start gap-2.5 border-b border-white/5 px-6 py-3 last:border-b-0"
+                className="flex items-start gap-2.5 border-b border-outline-variant px-6 py-3 last:border-b-0"
               >
                 <TriangleAlert className="mt-0.5 size-4 shrink-0 text-error" />
                 <div className="min-w-0">
@@ -148,7 +150,7 @@ export default async function LedgerPage() {
       </Panel>
 
       {stats && Object.keys(stats.countsByKind).length > 0 && (
-        <div className="mb-stack-md grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {Object.entries(stats.countsByKind).map(([kind, count]) => (
             <Panel key={kind} className="px-6 py-4" interactive={false}>
               <p className="font-mono text-status-label uppercase text-on-surface-variant">
@@ -164,17 +166,29 @@ export default async function LedgerPage() {
         <PanelHeader
           title="Records"
           icon={ScrollText}
-          description={
-            entries.length === 0
-              ? "Nothing recorded yet — decisions appear here as they are committed."
-              : "Newest first. Expand an entry to see the evidence that was hashed."
-          }
+          description="Newest first. Expand an entry to see the evidence that was hashed."
         />
-        <ul>
-          {entries.map((entry) => (
-            <LedgerEntryRow key={entry.seq} entry={entry} />
-          ))}
-        </ul>
+        {entries.length === 0 ? (
+          <EmptyState
+            icon={ScrollText}
+            title="Nothing recorded yet"
+            description="Entries appear here as actions are committed through the pipeline. Seeded history predates the ledger, which is why an empty chain still verifies."
+            action={
+              <Link
+                href="/console/decisions"
+                className="text-body-sm text-primary hover:underline"
+              >
+                Commit an action →
+              </Link>
+            }
+          />
+        ) : (
+          <ul>
+            {entries.map((entry) => (
+              <LedgerEntryRow key={entry.seq} entry={entry} />
+            ))}
+          </ul>
+        )}
       </Panel>
     </>
   );

@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BadgeCheck, Play, Scale, ShieldAlert, TriangleAlert } from "lucide-react";
+import { BadgeCheck, FlaskConical, Play, Scale, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { OutcomeBadge, riskColor } from "@/components/ui/outcome-badge";
-import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
+import { EmptyState } from "@/components/ui/api-error";
+import { GhostButton, Panel, PanelFooter, PanelHeader } from "@/components/ui/panel";
+import { Pipeline } from "@/components/ui/pipeline";
 import { StatusChip } from "@/components/ui/status-chip";
+import { FIELD_MONO_BLOCK_CLASS } from "@/components/ui/field";
 import { runSimulation } from "@/lib/api-client";
 import type {
   Agent,
@@ -15,8 +18,7 @@ import type {
 } from "@/lib/types";
 import { cn, formatPercent, formatUsd } from "@/lib/utils";
 
-const FIELD_CLASS =
-  "rounded border border-white/10 bg-surface-container-high px-2 py-1.5 font-mono text-body-sm text-on-surface focus:border-secondary focus:outline-none";
+const FIELD_CLASS = FIELD_MONO_BLOCK_CLASS;
 
 const EFFECT_LABELS: Record<RuleEffect, string> = {
   allow: "Allow",
@@ -95,7 +97,7 @@ function ExposureLedger({ result }: { result: SimulateActionResponse }) {
         icon={Scale}
         description="Deterministic — money follows the recommendation, not the raw probabilities."
       />
-      <dl className="divide-y divide-white/5">
+      <dl className="divide-y divide-outline-variant">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between px-6 py-3">
             <dt className="text-body-sm text-on-surface-variant">{row.label}</dt>
@@ -104,7 +106,7 @@ function ExposureLedger({ result }: { result: SimulateActionResponse }) {
         ))}
       </dl>
       {prevented > 0.5 && (
-        <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+        <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
           Governance avoids{" "}
           <span className="font-mono text-tertiary">{formatUsd(prevented)}</span> of average
           exposure on this action.
@@ -121,7 +123,7 @@ function OutcomeCard({ outcome }: { outcome: PredictedOutcome }) {
         "relative flex flex-col rounded-lg border p-4",
         outcome.recommended
           ? "border-tertiary/50 bg-tertiary/5 shadow-[0_0_16px_-6px_var(--color-tertiary)]"
-          : "border-white/8 bg-surface-container-high/40",
+          : "border-outline-variant bg-surface-container-high/40",
       )}
     >
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -147,7 +149,7 @@ function OutcomeCard({ outcome }: { outcome: PredictedOutcome }) {
         />
       </div>
 
-      <dl className="mt-auto flex flex-col gap-1.5 border-t border-white/5 pt-3">
+      <dl className="mt-auto flex flex-col gap-1.5 border-t border-outline-variant pt-3">
         <div className="flex justify-between">
           <dt className="text-body-sm text-on-surface-variant">Residual risk</dt>
           <dd className={cn("font-mono text-body-sm", riskColor(outcome.riskScore))}>
@@ -183,7 +185,7 @@ function PolicyTrace({ result }: { result: SimulateActionResponse }) {
           </StatusChip>
         }
       />
-      <ul className="divide-y divide-white/5">
+      <ul className="divide-y divide-outline-variant">
         {[...matched, ...rest].map((entry) => (
           <li
             key={entry.policyId}
@@ -261,10 +263,10 @@ export function ScenarioWorkspace({ agents }: { agents: Agent[] }) {
       <div className="xl:col-span-4">
         <Panel className="h-full" interactive={false}>
           <PanelHeader
-            title="Proposed Action"
+            title="Proposed action"
             description="Nothing here is recorded — this is a what-if, not a decision."
           />
-          <div className="flex flex-col gap-4 p-6">
+          <div className="flex flex-col gap-3.5 px-4 py-3.5">
             <Labelled label="Agent">
               <select
                 className={FIELD_CLASS}
@@ -350,18 +352,34 @@ export function ScenarioWorkspace({ agents }: { agents: Agent[] }) {
 
       <div className="flex flex-col gap-4 xl:col-span-8">
         {error && (
-          <p className="flex items-start gap-2 rounded border-l-2 border-error bg-error/5 px-4 py-3 text-body-sm text-error">
+          <p className="flex items-start gap-2 rounded-md border-l-2 border-error bg-error/[0.06] px-4 py-3 text-body-sm text-error">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             {error}
           </p>
         )}
 
         {!result && !error && (
-          <Panel className="flex h-full items-center justify-center p-12" interactive={false}>
-            <p className="text-center text-body-md text-on-surface-variant">
-              Set up an action and run it to see what ATLAS would decide — before anything
-              executes.
-            </p>
+          <Panel interactive={false}>
+            <EmptyState
+              icon={FlaskConical}
+              title="No simulation run yet"
+              description="Set up an action and run it to see what ATLAS would decide — before anything executes. Nothing is recorded."
+            />
+            <PanelFooter>
+              The pipeline below is the same one a committed decision travels: policy, trust,
+              simulation, verdict. The only difference is that nothing is written.
+            </PanelFooter>
+            <div className="px-4 py-4">
+              <Pipeline
+                stages={[
+                  { key: "request", label: "Request", status: "pending" },
+                  { key: "policy", label: "Policy", status: "pending" },
+                  { key: "trust", label: "Trust", status: "pending" },
+                  { key: "simulation", label: "Simulation", status: "pending" },
+                  { key: "decision", label: "Decision", status: "pending" },
+                ]}
+              />
+            </div>
           </Panel>
         )}
 
@@ -372,7 +390,7 @@ export function ScenarioWorkspace({ agents }: { agents: Agent[] }) {
                 title={`${result.agentName} — verdict`}
                 action={<OutcomeBadge outcome={result.recommendation} />}
               />
-              <dl className="grid grid-cols-2 divide-white/5 md:grid-cols-4 md:divide-x">
+              <dl className="grid grid-cols-2 divide-outline-variant md:grid-cols-4 md:divide-x">
                 {[
                   { label: "Confidence", value: `${result.confidence}%` },
                   { label: "Trust", value: String(result.trustScore) },
@@ -387,7 +405,7 @@ export function ScenarioWorkspace({ agents }: { agents: Agent[] }) {
                   </div>
                 ))}
               </dl>
-              <div className="flex flex-wrap gap-2 border-t border-white/5 px-6 py-3">
+              <div className="flex flex-wrap gap-2 border-t border-outline-variant px-6 py-3">
                 {result.policyForced && (
                   <StatusChip tone="danger">Policy-forced</StatusChip>
                 )}
@@ -395,7 +413,7 @@ export function ScenarioWorkspace({ agents }: { agents: Agent[] }) {
                   <StatusChip tone="neutral">No trained model — even split</StatusChip>
                 )}
               </div>
-              <ul className="flex flex-col gap-2 border-t border-white/5 px-6 py-4">
+              <ul className="flex flex-col gap-2 border-t border-outline-variant px-6 py-4">
                 {result.explanation.map((line) => (
                   <li key={line} className="text-body-sm text-on-surface-variant">
                     {line}

@@ -1,21 +1,29 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+/**
+ * Instrument Sans carries the whole interface — a grotesque with enough
+ * character to belong to ATLAS rather than to every dashboard, and tabular
+ * figures that keep dense columns from jittering.
+ */
+const instrument = Instrument_Sans({
+  variable: "--font-instrument",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+/** Identifiers, hashes, versions and thresholds. Never body text. */
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "ATLAS — AI Trust Operating System",
+  title: "ATLAS — Governance Control Plane",
   description:
-    "Adaptive Trust & Lifecycle Assurance System: a governance layer that decides whether autonomous financial agents can be trusted before they act.",
+    "ATLAS governs consequential autonomous actions: every request is evaluated against policy and trust, decided, and recorded in a verifiable governance ledger.",
 };
 
 export default function RootLayout({
@@ -24,7 +32,7 @@ export default function RootLayout({
   return (
     // Font variables live on <html> so they resolve at :root, where Tailwind
     // emits its --font-* theme values.
-    <html lang="en" className={`dark ${inter.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`dark ${instrument.variable} ${jetbrainsMono.variable}`}>
       <body>{children}</body>
     </html>
   );

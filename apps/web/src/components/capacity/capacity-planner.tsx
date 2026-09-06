@@ -5,12 +5,12 @@ import { AlertTriangle, ArrowUpRight, Gauge, Users } from "lucide-react";
 
 import { GhostButton, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
+import { FIELD_MONO_BLOCK_CLASS } from "@/components/ui/field";
 import { planCapacity } from "@/lib/api-client";
 import type { Cohort, CapacityAgentPlan, CapacityPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const FIELD_CLASS =
-  "rounded border border-white/10 bg-surface-container-high px-2 py-1.5 font-mono text-body-sm text-on-surface focus:border-secondary focus:outline-none";
+const FIELD_CLASS = FIELD_MONO_BLOCK_CLASS;
 
 const ACTION_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   scale: "success",
@@ -85,14 +85,14 @@ export function CapacityPlanner({ cohorts }: { cohorts: Cohort[] }) {
 
   return (
     <>
-      <Panel className="mb-stack-md" interactive={false}>
+      <Panel className="mb-4" interactive={false}>
         <PanelHeader
           title="Plan for growth"
           icon={Gauge}
           description="Projects what more volume would demand of governance — and which constraint runs out first."
         />
 
-        <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 px-4 py-3.5 md:grid-cols-4">
           <label className="flex flex-col gap-1.5">
             <span className="font-mono text-status-label uppercase text-on-surface-variant">
               Job
@@ -170,7 +170,7 @@ export function CapacityPlanner({ cohorts }: { cohorts: Cohort[] }) {
       {plan && (
         <>
           {/* --- the headline: what runs out first --- */}
-          <Panel className="mb-stack-md" interactive={false}>
+          <Panel className="mb-4" interactive={false}>
             <PanelHeader
               title="Verdict"
               icon={plan.feasible ? Gauge : AlertTriangle}
@@ -212,7 +212,7 @@ export function CapacityPlanner({ cohorts }: { cohorts: Cohort[] }) {
               )}
             </div>
 
-            <dl className="grid grid-cols-1 divide-white/5 border-t border-white/5 sm:grid-cols-3 sm:divide-x">
+            <dl className="grid grid-cols-1 divide-outline-variant border-t border-outline-variant sm:grid-cols-3 sm:divide-x">
               {plan.constraints.map((constraint) => (
                 <div key={constraint.key} className="px-6 py-4">
                   <dt className="flex items-center gap-1.5 font-mono text-status-label uppercase text-on-surface-variant">
@@ -241,12 +241,12 @@ export function CapacityPlanner({ cohorts }: { cohorts: Cohort[] }) {
           </Panel>
 
           {/* --- per-agent --- */}
-          <Panel className="mb-stack-md" interactive={false}>
+          <Panel className="mb-4" interactive={false}>
             <PanelHeader
               title="Who takes the extra work"
               description="Problems first. Quality gates growth — scaling a failing agent multiplies its failures rather than adding capacity."
             />
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-outline-variant">
               {plan.agents.map((entry) => (
                 <AgentRow key={entry.agentId} entry={entry} />
               ))}
