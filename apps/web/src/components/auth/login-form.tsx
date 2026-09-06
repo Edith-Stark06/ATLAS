@@ -5,9 +5,9 @@ import { useState, useTransition } from "react";
 import { LogIn, TriangleAlert } from "lucide-react";
 
 import { Panel } from "@/components/ui/panel";
+import { FIELD_MONO_BLOCK_CLASS } from "@/components/ui/field";
 
-const FIELD_CLASS =
-  "w-full rounded border border-white/10 bg-surface-container-high px-3 py-2 font-mono text-body-sm text-on-surface focus:border-secondary focus:outline-none";
+const FIELD_CLASS = FIELD_MONO_BLOCK_CLASS;
 
 /**
  * Only same-origin paths are followed after login. Without this check, a link
@@ -41,8 +41,8 @@ const DEMO_PASSWORD = "atlas-dev-admin";
 
 function Hint({ label, value }: { label: string; value: string }) {
   return (
-    <span className="text-status-label text-outline">
-      {label} <span className="font-mono text-on-surface-variant">{value}</span>
+    <span className="text-body-sm text-outline">
+      {label} <span className="font-mono text-label-mono text-on-surface-variant">{value}</span>
     </span>
   );
 }
@@ -83,17 +83,15 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
 
   return (
     <Panel interactive={false}>
-      <form onSubmit={submit} className="flex flex-col gap-4 p-6">
+      <form onSubmit={submit} className="flex flex-col gap-3.5 px-4 py-3.5">
         {expired && (
-          <p className="rounded border-l-2 border-brand-amber bg-brand-amber/5 px-3 py-2 text-body-sm text-brand-amber">
+          <p className="rounded-md border-l-2 border-brand-amber bg-brand-amber/[0.06] px-3 py-2 text-body-sm text-brand-amber">
             Your session expired. Sign in again to continue.
           </p>
         )}
 
         <label className="flex flex-col gap-1.5">
-          <span className="font-mono text-status-label uppercase text-on-surface-variant">
-            Email
-          </span>
+          <span className="eyebrow">Email</span>
           <input
             className={FIELD_CLASS}
             type="email"
@@ -107,9 +105,7 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="font-mono text-status-label uppercase text-on-surface-variant">
-            Password
-          </span>
+          <span className="eyebrow">Password</span>
           <input
             className={FIELD_CLASS}
             type="password"
@@ -125,7 +121,7 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
         {error && (
           <p
             role="alert"
-            className="flex items-start gap-2 rounded border-l-2 border-error bg-error/5 px-3 py-2 text-body-sm text-error"
+            className="flex items-start gap-2 rounded-md border-l-2 border-error bg-error/[0.06] px-3 py-2 text-body-sm text-error"
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             {error}
@@ -135,7 +131,7 @@ export function LoginForm({ next, expired }: { next?: string; expired?: boolean 
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 flex items-center justify-center gap-2 rounded border border-primary/30 bg-primary/10 px-4 py-2 font-mono text-label-mono uppercase text-primary transition-colors hover:bg-primary/20 disabled:opacity-60"
+          className="mt-1 flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-body-md font-medium text-on-primary transition-colors hover:bg-primary-bright disabled:opacity-60"
         >
           <LogIn className="size-3.5" />
           {pending ? "Signing in…" : "Sign in"}

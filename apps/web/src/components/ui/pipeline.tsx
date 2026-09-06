@@ -25,60 +25,103 @@ const STAGE_ICONS: Record<string, LucideIcon> = {
 };
 
 const NODE_STYLES: Record<PipelineStageStatus, string> = {
-  done: "border-tertiary/60 bg-tertiary/10 text-tertiary",
-  active: "border-primary bg-primary/15 text-primary shadow-[0_0_12px_-2px_var(--color-primary)] animate-pulse",
-  pending: "border-outline-variant bg-surface-container text-on-surface-variant",
-  failed: "border-error/60 bg-error/10 text-error",
+  done: "border-outline-strong bg-surface-container-high text-on-surface-variant",
+  // Violet marks where the pipeline currently is — the one place on this
+  // component the brand colour is spent.
+  active: "border-primary bg-primary/[0.12] text-primary",
+  pending: "border-outline-variant bg-surface-container text-outline",
+  failed: "border-error/50 bg-error/[0.08] text-error",
+};
+
+const RAIL_STYLES: Record<PipelineStageStatus, string> = {
+  done: "bg-outline-strong",
+  active: "bg-primary/50",
+  pending: "bg-outline-variant",
+  failed: "bg-error/40",
 };
 
 const LABEL_STYLES: Record<PipelineStageStatus, string> = {
   done: "text-on-surface",
   active: "text-primary",
-  pending: "text-on-surface-variant/60",
+  pending: "text-outline",
   failed: "text-error",
 };
 
 /**
- * The ATLAS governance pipeline, rendered left-to-right:
- * Agent Request → Trust → Policy → Simulation → Decision → Explain → Ledger → Execution.
+ * The governance pipeline as a horizontal rail:
+ * Request → Trust → Policy → Simulation → Decision → Explain → Ledger → Execution.
+ *
+ * The connector between two nodes takes the colour of the *earlier* stage, so
+ * the rail visibly stops where the pipeline stopped.
  */
-export function Pipeline({ stages }: { stages: PipelineStage[] }) {
+export function Pipeline({
+  stages,
+  /** Narrower nodes and smaller labels, for a side column. */
+  dense = false,
+}: {
+  stages: PipelineStage[];
+  dense?: boolean;
+}) {
   return (
-    <div className="relative flex w-full items-start justify-between gap-2 overflow-x-auto pb-2">
-      {/* Rail sits behind the nodes, aligned to their vertical centre. */}
-      <div className="absolute left-0 top-4 -z-0 h-px w-full bg-outline-variant/30" />
-
-      {stages.map((stage) => {
+    <ol className="flex w-full items-start overflow-x-auto pb-1">
+      {stages.map((stage, index) => {
         const Icon = STAGE_ICONS[stage.key] ?? Send;
+        const isLast = index === stages.length - 1;
+
         return (
-          <div
+          <li
             key={stage.key}
-            className="relative z-10 flex min-w-[80px] flex-1 flex-col items-center text-center"
+            className={cn(
+              "flex flex-1 flex-col items-center px-1.5 text-center",
+              dense ? "min-w-[64px]" : "min-w-[92px]",
+            )}
           >
-            <div
-              className={cn(
-                "mb-2 flex size-8 items-center justify-center rounded-full border",
-                NODE_STYLES[stage.status],
-              )}
-            >
-              <Icon className="size-4" />
+            <div className="flex w-full items-center">
+              {/* Half-rails either side keep the node centred over its label. */}
+              <span
+                className={cn(
+                  "h-px flex-1",
+                  index === 0 ? "bg-transparent" : RAIL_STYLES[stages[index - 1].status],
+                )}
+                aria-hidden
+              />
+              <span
+                className={cn(
+                  "flex shrink-0 items-center justify-center rounded-md border",
+                  dense ? "size-6" : "size-7",
+                  NODE_STYLES[stage.status],
+                )}
+              >
+                <Icon className={dense ? "size-3" : "size-3.5"} strokeWidth={1.75} />
+              </span>
+              <span
+                className={cn(
+                  "h-px flex-1",
+                  isLast ? "bg-transparent" : RAIL_STYLES[stage.status],
+                )}
+                aria-hidden
+              />
             </div>
+
             <span
               className={cn(
-                "font-mono text-status-label leading-tight",
+                "mt-2 px-1 text-body-sm leading-tight",
                 LABEL_STYLES[stage.status],
               )}
             >
               {stage.label}
             </span>
             {stage.detail && (
-              <span className="mt-1 font-mono text-status-label text-outline">
+              <span
+                className="mt-0.5 block w-full truncate font-mono text-label-mono-xs text-outline"
+                title={stage.detail}
+              >
                 {stage.detail}
               </span>
             )}
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

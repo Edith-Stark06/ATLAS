@@ -182,6 +182,17 @@ export async function recomputeTrust(): Promise<RecomputeResponse> {
 
 export const fetchModelInfo = () => apiGet<ModelInfo>("/trust/model-info");
 
+/**
+ * Picks up whatever artifacts are currently on disk, without a restart.
+ *
+ * The loaders in the API are cached for the process's life, so promoting a
+ * candidate does nothing to a running server until this is called. Admin-only,
+ * enforced by the API — swapping the live decision-making model is at least as
+ * sensitive as creating a user.
+ */
+export const reloadModels = () =>
+  apiPost<ModelInfo>("/trust/reload-models", {}, REQUEST_TIMEOUT_MS * 4);
+
 /** Scores a hypothetical decision with the trained outcome classifier — no
  * persistence, distinct from the historical SimulationRun records. */
 export async function simulatePredict(

@@ -167,7 +167,7 @@ function LatencyPanel({ analytics }: { analytics: GovernanceAnalytics }) {
           <StatusChip tone="neutral">{latency.samples.toLocaleString()} samples</StatusChip>
         }
       />
-      <dl className="grid grid-cols-2 divide-white/5 sm:grid-cols-5 sm:divide-x">
+      <dl className="grid grid-cols-2 divide-outline-variant sm:grid-cols-5 sm:divide-x">
         {rows.map((row) => (
           <div key={row.label} className="px-6 py-4 sm:px-4">
             <dt className="font-mono text-status-label uppercase text-on-surface-variant">
@@ -177,7 +177,7 @@ function LatencyPanel({ analytics }: { analytics: GovernanceAnalytics }) {
           </div>
         ))}
       </dl>
-      <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+      <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
         {tailHeavy ? (
           <>
             The tail is <span className="text-brand-amber">well above the mean</span> — the
@@ -204,8 +204,8 @@ export default async function AnalyticsPage({
 
   const header = (
     <PageHeader
-      title="Governance"
-      highlight="Analytics"
+      eyebrow="System"
+      title="Governance analytics"
       description="Aggregate trends across agents, policies and decisions — computed from the records, never from a rollup that could drift."
     />
   );
@@ -226,7 +226,7 @@ export default async function AnalyticsPage({
     <>
       {header}
 
-      <div className="mb-stack-md flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {WINDOWS.map((window) => (
           <Link
             key={window}
@@ -235,7 +235,7 @@ export default async function AnalyticsPage({
               "rounded border px-3 py-1.5 font-mono text-label-mono uppercase transition-colors",
               window === days
                 ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-white/10 text-on-surface-variant hover:text-on-surface",
+                : "border-outline-strong text-on-surface-variant hover:text-on-surface",
             )}
           >
             {window} days
@@ -243,7 +243,7 @@ export default async function AnalyticsPage({
         ))}
       </div>
 
-      <div className="mb-stack-md grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Decisions"
           value={analytics.series.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
@@ -265,7 +265,7 @@ export default async function AnalyticsPage({
         <StatCard label="p99 latency" value={`${analytics.latency.p99}ms`} icon={Clock} />
       </div>
 
-      <div className="mb-stack-md grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel interactive={false}>
           <PanelHeader
             title="Decision volume"
@@ -299,7 +299,7 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      <div className="mb-stack-md grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <LatencyPanel analytics={analytics} />
 
         <Panel interactive={false}>
@@ -308,7 +308,7 @@ export default async function AnalyticsPage({
             icon={UserCheck}
             description="What governance is asking humans to do."
           />
-          <dl className="grid grid-cols-3 divide-white/5 sm:divide-x">
+          <dl className="grid grid-cols-3 divide-outline-variant sm:divide-x">
             <div className="px-6 py-4">
               <dt className="font-mono text-status-label uppercase text-on-surface-variant">
                 Escalated
@@ -340,7 +340,7 @@ export default async function AnalyticsPage({
               </dd>
             </div>
           </dl>
-          <div className="border-t border-white/5 px-6 py-4">
+          <div className="border-t border-outline-variant px-6 py-4">
             <p className="font-mono text-status-label uppercase text-on-surface-variant">
               Exposure
             </p>
@@ -376,7 +376,7 @@ export default async function AnalyticsPage({
             No policy checks recorded in this window.
           </p>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-outline-variant">
             {analytics.hotspots.map((hotspot) => (
               <li
                 key={hotspot.policyId}
@@ -415,7 +415,7 @@ export default async function AnalyticsPage({
         )}
 
         {dead.length > 0 && (
-          <p className="border-t border-white/5 px-6 py-3 text-body-sm text-on-surface-variant">
+          <p className="border-t border-outline-variant px-6 py-3 text-body-sm text-on-surface-variant">
             A rule evaluated many times that has never once matched is either
             mis-scoped or redundant. Both are worth an author&apos;s attention — but
             neither is flagged until the rule has actually been tested enough times

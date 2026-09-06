@@ -1,75 +1,86 @@
-import { Bell, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
+import { Bell, LogOut } from "lucide-react";
 
+import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { CommandSearch } from "@/components/layout/command-search";
 import { getSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 const ROLE_TONE: Record<string, string> = {
-  admin: "bg-error/10 text-error",
-  operator: "bg-secondary/10 text-secondary",
-  viewer: "bg-outline/10 text-on-surface-variant",
+  admin: "border-outline-strong text-on-surface-variant",
+  operator: "border-outline-strong text-on-surface-variant",
+  viewer: "border-outline-variant text-outline",
 };
 
-const ENVIRONMENT_FLAGS = [
-  { label: "Production", tone: "text-cyan-glow", dot: "bg-cyan-glow", strong: true },
-  { label: "Compliant", tone: "text-on-surface-variant", dot: "bg-tertiary-green", strong: false },
-  { label: "Healthy", tone: "text-on-surface-variant", dot: "bg-tertiary-green", strong: false },
-];
+/** First letters of the signed-in name — no avatar service, no placeholder art. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
 
 export async function Topbar() {
   const session = await getSession();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-white/5 bg-surface-container-low/50 px-gutter shadow-sm backdrop-blur-md">
-      <div className="flex items-center gap-4">
-        <span className="text-headline-sm font-bold text-on-surface">ATLAS Enterprise</span>
-        <span className="h-4 w-px bg-outline-variant/50" />
-        <div className="flex gap-4">
-          {ENVIRONMENT_FLAGS.map((flag) => (
-            <span
-              key={flag.label}
-              className={`flex items-center gap-1.5 font-mono text-label-mono ${flag.tone} ${
-                flag.strong ? "font-bold" : ""
-              }`}
-            >
-              <span className={`size-1.5 rounded-full ${flag.dot}`} />
-              {flag.label}
-            </span>
-          ))}
-        </div>
-      </div>
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 lg:px-5">
+      {/* Room for the mobile nav trigger, which is fixed at the same height. */}
+      <div className="w-9 shrink-0 lg:hidden" aria-hidden />
 
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
+      <Breadcrumb />
+
+      <span
+        className="ml-1 hidden shrink-0 items-center gap-1.5 rounded-md border border-outline-variant px-2 py-1 text-status-label uppercase text-on-surface-variant sm:inline-flex"
+        title="Environment"
+      >
+        <span className="size-1.5 rounded-full bg-tertiary" aria-hidden />
+        Production
+      </span>
+
+      <div className="ml-auto flex items-center gap-2">
+        <div className="hidden md:block">
+          <CommandSearch />
+        </div>
+
+        <Link
+          href="/console/alerts"
           aria-label="Alerts"
-          className="relative rounded p-1.5 text-on-surface-variant transition-colors hover:text-on-surface"
+          className="relative rounded-md p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         >
-          <Bell className="size-5" />
-          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-error" />
-        </button>
+          <Bell className="size-4" strokeWidth={1.75} />
+        </Link>
+
         {session && (
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-body-sm text-on-surface">{session.name}</p>
+          <div className="flex items-center gap-2 border-l border-outline-variant pl-2">
+            <span
+              className="flex size-7 shrink-0 items-center justify-center rounded-md border border-outline-strong bg-surface-container-high text-label-mono-xs font-semibold text-on-surface-variant"
+              title={session.email || session.name}
+              aria-hidden
+            >
+              {initials(session.name)}
+            </span>
+            <div className="hidden leading-tight lg:block">
+              <p className="max-w-[12ch] truncate text-body-sm text-on-surface">
+                {session.name}
+              </p>
               <span
-                className={`inline-flex rounded-xl px-2 py-0.5 text-status-label uppercase ${
-                  ROLE_TONE[session.role] ?? ROLE_TONE.viewer
-                }`}
+                className={cn(
+                  "inline-flex rounded-sm border px-1 text-status-label uppercase",
+                  ROLE_TONE[session.role] ?? ROLE_TONE.viewer,
+                )}
               >
                 {session.role}
               </span>
             </div>
-            <span className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-surface-container-high">
-              <UserRound className="size-4 text-on-surface-variant" />
-            </span>
             {/* A form POST, not a link: signing out is a state change, and a
                 GET would let any page log the user out with an <img> tag. */}
             <form action="/api/auth/logout" method="post">
               <button
                 type="submit"
                 aria-label="Sign out"
-                className="rounded p-1.5 text-on-surface-variant transition-colors hover:text-on-surface"
+                className="rounded-md p-2 text-outline transition-colors hover:bg-surface-container-high hover:text-on-surface"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-4" strokeWidth={1.75} />
               </button>
             </form>
           </div>

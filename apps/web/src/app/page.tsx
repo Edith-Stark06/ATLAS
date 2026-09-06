@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
-  BrainCircuit,
   FlaskConical,
   Github,
   Scale,
@@ -11,13 +10,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { AtlasMark } from "@/components/layout/atlas-mark";
 import { PipelineDiagram } from "@/components/marketing/pipeline-diagram";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "ATLAS — The Trust Layer for Autonomous AI",
+  title: "ATLAS — Governance Control Plane",
   description:
-    "ATLAS decides whether an autonomous financial agent can be trusted to act — before it acts. Continuous trust scoring, policy-as-code, and pre-execution simulation.",
+    "ATLAS decides whether an autonomous agent can be trusted to act — before it acts. Continuous trust scoring, policy as data, pre-execution simulation, and a verifiable governance ledger.",
 };
 
 const NAV_LINKS = [
@@ -38,7 +37,7 @@ const CAPABILITIES: Capability[] = [
     icon: ShieldCheck,
     title: "Trust that moves",
     body: "Every agent carries a score recomputed from its own behaviour — not a permission granted once at deployment and never revisited. Drift is measured against the agent's own history, so a fleet of dissimilar agents doesn't need one impossible shared threshold.",
-    proof: "Learned scoring beats hand-set weights by 6.1% AUC",
+    proof: "Learned scoring beats hand-set weights on held-out data",
   },
   {
     icon: Scale,
@@ -78,9 +77,10 @@ const STEPS = [
   },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-xl border border-cyan-glow/25 bg-cyan-glow/5 px-3 py-1.5 font-mono text-label-mono-xs uppercase tracking-[0.15em] text-cyan-glow">
+    <span className="inline-flex items-center gap-2 rounded-md border border-outline-variant px-2.5 py-1 text-status-label uppercase text-on-surface-variant">
+      <span className="size-1.5 rounded-full bg-primary" aria-hidden />
       {children}
     </span>
   );
@@ -88,22 +88,24 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-surface-base/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="flex size-8 items-center justify-center rounded border border-cyan-glow/30 bg-cyan-glow/10 shadow-[0_0_10px_rgb(6_182_212_/_0.2)]">
-              <BrainCircuit className="size-5 text-cyan-glow" />
+    <div className="min-h-screen bg-surface-base">
+      <header className="sticky top-0 z-50 border-b border-outline-variant bg-surface-base/90 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex size-7 items-center justify-center rounded-md border border-primary/25 bg-primary/[0.08] p-1 text-primary">
+              <AtlasMark />
             </span>
-            <span className="text-headline-sm font-bold tracking-tight text-white">ATLAS</span>
+            <span className="text-[15px] font-semibold tracking-[0.14em] text-on-surface">
+              ATLAS
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-8 md:flex">
+          <nav className="hidden items-center gap-7 md:flex">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="font-mono text-label-mono text-on-surface-variant transition-colors hover:text-white"
+                className="text-body-sm text-on-surface-variant transition-colors hover:text-on-surface"
               >
                 {link.label}
               </a>
@@ -112,82 +114,70 @@ export default function LandingPage() {
 
           <Link
             href="/console"
-            className="flex items-center gap-2 rounded border border-cyan-glow/40 bg-cyan-glow/10 px-4 py-2 font-mono text-label-mono uppercase tracking-wider text-cyan-glow transition-all hover:bg-cyan-glow/20 hover:shadow-[0_0_15px_rgb(6_182_212_/_0.25)]"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary transition-colors hover:bg-primary-bright"
           >
-            Launch Console
+            Open console
             <ArrowRight className="size-3.5" />
           </Link>
         </div>
       </header>
 
       {/* --- Hero --- */}
-      <section className="relative overflow-hidden px-6 pb-28 pt-24 md:pt-32">
-        {/* Bloom behind the headline. */}
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 size-[700px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-cyan-glow/10 blur-[130px]"
-          aria-hidden
-        />
-
-        <div className="relative mx-auto max-w-4xl text-center">
+      <section className="border-b border-outline-variant px-6 py-24 md:py-28">
+        <div className="mx-auto max-w-4xl text-center">
           <div className="animate-fade-in-up">
-            <SectionLabel>Governance Layer for Autonomous Agents</SectionLabel>
+            <Eyebrow>Governance Control Plane</Eyebrow>
           </div>
 
-          <h1 className="mt-8 animate-fade-in-up text-[44px] font-bold leading-[1.1] tracking-tight text-white [animation-delay:100ms] md:text-[64px]">
-            The control plane for
+          <h1 className="mx-auto mt-7 max-w-3xl animate-fade-in-up text-[40px] font-semibold leading-[1.08] tracking-[-0.03em] text-on-surface [animation-delay:60ms] md:text-[56px]">
+            Autonomous agents are acting.
             <br />
-            <span className="bg-gradient-to-r from-cyan-glow via-primary to-tertiary-green bg-clip-text text-transparent">
-              trusted autonomous finance
-            </span>
+            <span className="text-on-surface-variant">Something has to govern them.</span>
           </h1>
 
-          <p className="mx-auto mt-8 max-w-2xl animate-fade-in-up text-body-lg leading-relaxed text-on-surface-variant [animation-delay:200ms] md:text-[18px]">
-            Autonomous agents are moving real money. ATLAS decides whether one can be
-            trusted to act — scoring its behaviour, enforcing your policies, and simulating
-            the outcome{" "}
-            <em className="not-italic text-white">before the action executes</em>, never
-            after.
+          <p className="mx-auto mt-7 max-w-2xl animate-fade-in-up text-body-lg leading-relaxed text-on-surface-variant [animation-delay:120ms]">
+            ATLAS decides whether an agent can be trusted to take a consequential action —
+            scoring its behaviour, enforcing your policies, and simulating the outcome{" "}
+            <span className="text-on-surface">before the action executes</span>, never after.
+            Every verdict is recorded where it can be verified.
           </p>
 
-          <div className="mt-10 flex animate-fade-in-up flex-col items-center justify-center gap-3 [animation-delay:300ms] sm:flex-row">
+          <div className="mt-9 flex animate-fade-in-up flex-col items-center justify-center gap-2.5 [animation-delay:180ms] sm:flex-row">
             <Link
               href="/console"
-              className="group flex w-full items-center justify-center gap-2 rounded border border-cyan-glow/50 bg-cyan-glow/15 px-6 py-3 text-body-md font-semibold text-white transition-all hover:bg-cyan-glow/25 hover:shadow-[0_0_25px_rgb(6_182_212_/_0.3)] sm:w-auto"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-body-md font-medium text-on-primary transition-colors hover:bg-primary-bright sm:w-auto"
             >
-              Open the Console
+              Open the console
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
               href="https://github.com/Edith-Stark06/ATLAS"
               target="_blank"
               rel="noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded border border-white/10 px-6 py-3 text-body-md text-on-surface-variant transition-colors hover:border-white/20 hover:text-white sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-outline-strong px-5 py-2.5 text-body-md text-on-surface-variant transition-colors hover:border-outline hover:text-on-surface sm:w-auto"
             >
               <Github className="size-4" />
               View the source
             </a>
           </div>
 
-          <p className="mt-6 animate-fade-in-up font-mono text-label-mono-xs uppercase tracking-[0.12em] text-outline [animation-delay:400ms]">
+          <p className="mt-6 animate-fade-in-up text-body-sm text-outline [animation-delay:240ms]">
             Live demo runs on seeded data · No sign-up
           </p>
         </div>
       </section>
 
       {/* --- Pipeline --- */}
-      <section
-        id="pipeline"
-        className="scroll-mt-20 border-y border-white/5 bg-surface-base/40 px-6 py-24"
-      >
+      <section id="pipeline" className="scroll-mt-16 border-b border-outline-variant px-6 py-20">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <SectionLabel>The Governance Pipeline</SectionLabel>
-            <h2 className="mx-auto mt-6 max-w-2xl text-headline-lg font-bold tracking-tight text-white md:text-[36px]">
+          <div className="mb-14 text-center">
+            <Eyebrow>The governance pipeline</Eyebrow>
+            <h2 className="mx-auto mt-5 max-w-2xl text-[30px] font-semibold tracking-[-0.025em] text-on-surface">
               Eight checks, every one of them before execution
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-body-md text-on-surface-variant">
-              Conventional governance audits what already happened. ATLAS sits in front of
-              the action, so a decision that should not have been made simply is not made.
+            <p className="mx-auto mt-3 max-w-2xl text-body-md text-on-surface-variant">
+              Conventional governance audits what already happened. ATLAS sits in front of the
+              action, so a decision that should not have been made simply is not made.
             </p>
           </div>
 
@@ -196,32 +186,29 @@ export default function LandingPage() {
       </section>
 
       {/* --- Capabilities --- */}
-      <section id="capabilities" className="scroll-mt-20 px-6 py-24">
+      <section id="capabilities" className="scroll-mt-16 border-b border-outline-variant px-6 py-20">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-14 max-w-2xl">
-            <SectionLabel>Core Capabilities</SectionLabel>
-            <h2 className="mt-6 text-headline-lg font-bold tracking-tight text-white md:text-[36px]">
+          <div className="mb-10 max-w-2xl">
+            <Eyebrow>Core capabilities</Eyebrow>
+            <h2 className="mt-5 text-[30px] font-semibold tracking-[-0.025em] text-on-surface">
               Built to be inspected, not just trusted
             </h2>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {CAPABILITIES.map((capability, i) => (
+          <div className="grid gap-4 md:grid-cols-2">
+            {CAPABILITIES.map((capability) => (
               <article
                 key={capability.title}
-                className="glass-panel glass-panel-hover group animate-fade-in-up rounded-xl p-7"
-                style={{ animationDelay: `${i * 80}ms` }}
+                className="surface-card glass-panel-hover flex flex-col p-6"
               >
-                <span className="mb-5 flex size-11 items-center justify-center rounded-lg border border-cyan-glow/25 bg-cyan-glow/10 text-cyan-glow transition-shadow group-hover:shadow-[0_0_18px_rgb(6_182_212_/_0.25)]">
-                  <capability.icon className="size-5" />
+                <span className="mb-4 flex size-9 items-center justify-center rounded-md border border-outline-variant bg-surface-container-high text-on-surface-variant">
+                  <capability.icon className="size-4" strokeWidth={1.75} />
                 </span>
-                <h3 className="mb-3 text-headline-sm font-semibold text-white">
-                  {capability.title}
-                </h3>
+                <h3 className="mb-2 text-headline-md text-on-surface">{capability.title}</h3>
                 <p className="text-body-md leading-relaxed text-on-surface-variant">
                   {capability.body}
                 </p>
-                <p className="mt-5 border-t border-white/5 pt-4 font-mono text-label-mono-xs uppercase tracking-wider text-cyan-glow/80">
+                <p className="mt-5 border-t border-outline-variant pt-3.5 text-body-sm text-outline">
                   {capability.proof}
                 </p>
               </article>
@@ -231,31 +218,20 @@ export default function LandingPage() {
       </section>
 
       {/* --- How it works --- */}
-      <section
-        id="how"
-        className="scroll-mt-20 border-t border-white/5 bg-surface-base/40 px-6 py-24"
-      >
+      <section id="how" className="scroll-mt-16 border-b border-outline-variant px-6 py-20">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-14 text-center">
-            <SectionLabel>How it works</SectionLabel>
-            <h2 className="mt-6 text-headline-lg font-bold tracking-tight text-white md:text-[36px]">
+          <div className="mb-10 text-center">
+            <Eyebrow>How it works</Eyebrow>
+            <h2 className="mt-5 text-[30px] font-semibold tracking-[-0.025em] text-on-surface">
               Three steps to governed autonomy
             </h2>
           </div>
 
           <ol className="grid gap-8 md:grid-cols-3">
-            {STEPS.map((item, i) => (
-              <li
-                key={item.step}
-                className="animate-fade-in-up"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <span className="font-mono text-hero-num text-transparent [-webkit-text-stroke:1px_rgb(6_182_212_/_0.4)]">
-                  {item.step}
-                </span>
-                <h3 className="mb-3 mt-4 text-headline-sm font-semibold text-white">
-                  {item.title}
-                </h3>
+            {STEPS.map((item) => (
+              <li key={item.step}>
+                <span className="font-mono text-label-mono text-primary">{item.step}</span>
+                <h3 className="mb-2 mt-3 text-headline-md text-on-surface">{item.title}</h3>
                 <p className="text-body-md leading-relaxed text-on-surface-variant">
                   {item.body}
                 </p>
@@ -265,49 +241,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Closing CTA --- */}
-      <section className="relative overflow-hidden px-6 py-28">
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-glow/[0.07] blur-[120px]"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <h2 className="text-headline-lg font-bold tracking-tight text-white md:text-[40px]">
-            The question is not whether your AI is capable.
+      {/* --- Closing --- */}
+      <section className="px-6 py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-[32px] font-semibold leading-tight tracking-[-0.025em] text-on-surface">
+            The question is not whether your agents are capable.
             <br />
-            <span className="text-cyan-glow">It is whether you can prove it is safe.</span>
+            <span className="text-on-surface-variant">
+              It is whether you can prove they were safe.
+            </span>
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-body-lg text-on-surface-variant">
+          <p className="mx-auto mt-5 max-w-xl text-body-lg text-on-surface-variant">
             Open the console and watch a real governance pipeline evaluate live agents,
             policies, and decisions.
           </p>
           <Link
             href="/console"
-            className="group mt-10 inline-flex items-center gap-2 rounded border border-cyan-glow/50 bg-cyan-glow/15 px-7 py-3.5 text-body-md font-semibold text-white transition-all hover:bg-cyan-glow/25 hover:shadow-[0_0_25px_rgb(6_182_212_/_0.3)]"
+            className="group mt-8 inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-body-md font-medium text-on-primary transition-colors hover:bg-primary-bright"
           >
-            Launch Console
+            Open the console
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
       </section>
 
-      <footer className="border-t border-white/5 px-6 py-10">
-        <div
-          className={cn(
-            "mx-auto flex max-w-6xl flex-col items-center justify-between gap-4",
-            "text-center sm:flex-row sm:text-left",
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <BrainCircuit className="size-4 text-cyan-glow" />
-            <span className="font-mono text-label-mono text-on-surface-variant">
+      <footer className="border-t border-outline-variant px-6 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-5 items-center justify-center text-outline">
+              <AtlasMark />
+            </span>
+            <span className="text-body-sm text-outline">
               ATLAS — Adaptive Trust &amp; Lifecycle Assurance System
             </span>
           </div>
           <div className="flex items-center gap-6">
             <Link
               href="/console/status"
-              className="font-mono text-label-mono text-on-surface-variant transition-colors hover:text-white"
+              className="text-body-sm text-on-surface-variant transition-colors hover:text-on-surface"
             >
               System status
             </Link>
@@ -315,7 +286,7 @@ export default function LandingPage() {
               href="https://github.com/Edith-Stark06/ATLAS"
               target="_blank"
               rel="noreferrer"
-              className="font-mono text-label-mono text-on-surface-variant transition-colors hover:text-white"
+              className="text-body-sm text-on-surface-variant transition-colors hover:text-on-surface"
             >
               GitHub
             </a>

@@ -63,8 +63,8 @@ export default async function StatusPage() {
   return (
     <>
       <PageHeader
-        title="System"
-        highlight="Status"
+        eyebrow="System"
+        title="System status"
         description="Live health of the ATLAS stack, probed end to end from this page through the API to its data stores."
       />
 
@@ -79,7 +79,7 @@ export default async function StatusPage() {
             </div>
           }
         />
-        <ul className="divide-y divide-white/5">
+        <ul className="divide-y divide-outline-variant">
           {services.map((service) => (
             <li key={service.name} className="flex items-center gap-4 px-6 py-3.5">
               <StatusPip tone={service.tone} />

@@ -3,7 +3,7 @@ import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { StatusChip } from "@/components/ui/status-chip";
 import type { Drift } from "@/lib/types";
 
-/** Shows movement against the agent's own baseline, not an absolute score. */
+/** Movement against the agent's own baseline, not against an absolute score. */
 export function DriftBadge({ drift }: { drift: Drift }) {
   if (drift.baseline === null) {
     return <StatusChip tone="neutral">No history</StatusChip>;

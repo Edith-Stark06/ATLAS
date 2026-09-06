@@ -42,12 +42,12 @@ export function LedgerEntryRow({ entry }: { entry: LedgerEntry }) {
   const outcome = outcomeOf(entry);
 
   return (
-    <li className="border-b border-white/5 last:border-b-0">
+    <li className="border-b border-outline-variant last:border-b-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full flex-wrap items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-white/[0.02]"
+        className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-container-high"
       >
         <ChevronRight
           className={cn(
@@ -55,7 +55,7 @@ export function LedgerEntryRow({ entry }: { entry: LedgerEntry }) {
             open && "rotate-90",
           )}
         />
-        <span className="font-mono text-body-sm text-outline">#{entry.seq}</span>
+        <span className="w-8 shrink-0 font-mono text-label-mono text-outline">#{entry.seq}</span>
         <StatusChip tone="neutral">{KIND_LABELS[entry.kind] ?? entry.kind}</StatusChip>
         {/* basis-48, not just flex-1: with min-w-0 alone this column collapses
             to a single character when the row is tight, instead of wrapping. */}
@@ -63,30 +63,28 @@ export function LedgerEntryRow({ entry }: { entry: LedgerEntry }) {
           {actionOf(entry)}
         </span>
         <span
-          className="hidden font-mono text-status-label text-outline lg:inline"
+          className="hidden font-mono text-label-mono-xs text-outline lg:inline"
           title={entry.entryHash}
         >
           {abbreviate(entry.entryHash)}
         </span>
-        <span className="font-mono text-status-label text-outline">
+        <span className="w-[68px] shrink-0 text-right font-mono text-label-mono-xs text-outline">
           {formatTime(entry.recordedAt)}
         </span>
         {outcome && <OutcomeBadge outcome={outcome} />}
       </button>
 
       {open && (
-        <div className="border-t border-white/5 bg-surface-container-high/30 px-6 py-4">
+        <div className="border-t border-outline-variant bg-surface-container-high px-4 py-3.5">
           <dl className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <dt className="font-mono text-status-label uppercase text-on-surface-variant">
-                Entry hash
-              </dt>
+              <dt className="eyebrow">Entry hash</dt>
               <dd className="mt-1 break-all font-mono text-body-sm text-on-surface">
                 {entry.entryHash}
               </dd>
             </div>
             <div>
-              <dt className="flex items-center gap-1.5 font-mono text-status-label uppercase text-on-surface-variant">
+              <dt className="eyebrow flex items-center gap-1.5">
                 <Link2 className="size-3" /> Previous hash
               </dt>
               <dd className="mt-1 break-all font-mono text-body-sm text-on-surface-variant">
@@ -95,12 +93,10 @@ export function LedgerEntryRow({ entry }: { entry: LedgerEntry }) {
             </div>
           </dl>
 
-          <p className="mb-2 font-mono text-status-label uppercase text-on-surface-variant">
-            Pinned evidence
-          </p>
+          <p className="eyebrow mb-1.5">Pinned evidence</p>
           {/* The raw payload, not a prettified summary: this is the exact
               object that was hashed, so an auditor can recompute it. */}
-          <pre className="max-h-96 overflow-auto rounded border border-white/5 bg-surface-base/60 p-4 font-mono text-body-sm text-on-surface-variant">
+          <pre className="custom-scrollbar max-h-96 overflow-auto rounded-md border border-outline-variant bg-surface-base p-3 font-mono text-body-sm text-on-surface-variant">
             {JSON.stringify(entry.payload, null, 2)}
           </pre>
         </div>
